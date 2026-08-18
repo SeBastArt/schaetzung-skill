@@ -1,0 +1,11 @@
+{
+  "name": "schaetzung",
+  "description": "Interactive effort-estimation pages for customer scope discussions — three-point estimates with per-item derivation (origin, assumptions, risks), A/V/X scope assignment, comments, JSON import/export and PDF print. German-language output.",
+  "version": "1.0.0",
+  "author": {
+    "name": "SeBastArt"
+  },
+  "homepage": "https://github.com/SeBastArt/schaetzung-skill",
+  "repository": "https://github.com/SeBastArt/schaetzung-skill",
+  "license": "MIT"
+}
