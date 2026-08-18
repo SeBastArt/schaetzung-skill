@@ -1,6 +1,6 @@
 // Generator für eine interaktive Aufwandsschätzungs-Seite (ein selbstständiges HTML).
 // Anpassen: KONFIG + BLOCKS + CONDITIONS. Dann: node schaetzung-build.js
-// Alles Weitere (Summen, Spanne, PERT, Summenband, 5-PT-Markierung, A/V/X-Checkboxen,
+// Alles Weitere (Summen, Spanne, PERT, Summenband, 5-PT-Markierung, A/K/X-Checkboxen,
 // Kommentare, JSON-Import/-Export, PDF-Druck) wird aus den Daten berechnet.
 const fs = require('fs');
 const path = require('path');
@@ -17,7 +17,7 @@ const KONFIG = {
   // Eindeutiger Schlüssel je Projekt — trennt localStorage-Stand und JSON-Format.
   // ZWINGEND je Schätzung ändern, sonst überschreiben sich zwei Schätzungen unter derselben Adresse:
   speicherKey: 'projekt-schaetzung',
-  // Beschriftung der A/V/X-Zuordnung (wer ist „wir", wer ist der Kunde):
+  // Beschriftung der A/K/X-Zuordnung (wer ist „wir", wer ist der Kunde):
   wirLabel: 'Anbieter',       // eigenen Firmennamen eintragen
   kundeLabel: 'Kunde',
   // Blocktitel, der das GATE-1-Tag trägt (erster Umsetzungsschritt, der die größten
@@ -194,7 +194,7 @@ a{color:var(--accent)}
 .avx .cb{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;cursor:pointer;user-select:none}
 .avx .cb input{width:13px;height:13px;margin:0;cursor:pointer}
 .avx .cb.a{color:#1b4dc2}.avx .cb.a input{accent-color:#1b4dc2}
-.avx .cb.v{color:#0f7b52}.avx .cb.v input{accent-color:#0f7b52}
+.avx .cb.k{color:#0f7b52}.avx .cb.k input{accent-color:#0f7b52}
 .avx .cb.x{color:#b3261e}.avx .cb.x input{accent-color:#b3261e}
 .card:has(> #avx-tally){position:sticky;top:0;z-index:20}
 #tools{position:fixed;right:22px;bottom:22px;z-index:60;display:flex;gap:8px}
@@ -259,7 +259,7 @@ for (const b of BLOCKS) {
   for (const [name, t, hk, an, ri] of b.pos) {
     pi++;
     const spread = Math.abs(t[1]-t[0]) > 5 || Math.abs(t[2]-t[1]) > 5;
-    const avx = ['A','V','X'].map(v => `<label class="cb ${v.toLowerCase()}" title="${v==='A'?esc(KONFIG.wirLabel)+' macht es':v==='V'?esc(KONFIG.kundeLabel)+' macht es':'wird gestrichen'}"><input type=checkbox data-k="${bi}.${pi}" data-pt="${t[1]}" value=${v}>${v}</label>`).join('');
+    const avx = ['A','K','X'].map(v => `<label class="cb ${v.toLowerCase()}" title="${v==='A'?esc(KONFIG.wirLabel)+' macht es':v==='K'?esc(KONFIG.kundeLabel)+' macht es':'wird gestrichen'}"><input type=checkbox data-k="${bi}.${pi}" data-pt="${t[1]}" value=${v}>${v}</label>`).join('');
     body += `<div class=p data-k="${bi}.${pi}"><div class=pn><span>${bi}.${pi} ${esc(name)}</span><span class=avx>${avx}<button class=cmt-btn type=button title="Kommentar hinzufügen">✎</button></span><span class="pv${spread?" spread":""}">${trip(t)} PT</span></div>`
       + `<div class=fld><b class='tag hk'>Herkunft</b>${esc(hk)}</div>`
       + (an ? `<div class=fld><b class='tag an'>Annahme</b>${esc(an)}</div>` : '')
@@ -325,7 +325,7 @@ ${KONFIG.kalkulationsmodellHtml ? `<div class=dodbox>${KONFIG.kalkulationsmodell
 <p style='font-size:12.5px;color:#5b6572;margin:8px 10px'>Entfällt oder verzögert sich eine Mitwirkungsleistung, werden die davon abhängigen Positionen neu bewertet.</p></div></section>
 
 <section><div class=sectitle><h2>Positionen</h2><span class=hint>je Position: min · wahrscheinlich · max PT — <span style="background:#fdecea;border:1px solid #f2c4bd;border-radius:20px;padding:0 8px;color:#7a2a22">rot</span> = min oder max weicht mehr als 5 PT vom wahrscheinlichen Wert ab</span></div>
-<div class=card style='padding:10px 18px;margin-bottom:14px;font-size:13.5px'><div id=avx-tally>A = ${esc(KONFIG.wirLabel)} macht es · V = ${esc(KONFIG.kundeLabel)} macht es · X = wird gestrichen</div><div id=export-stamp></div></div>
+<div class=card style='padding:10px 18px;margin-bottom:14px;font-size:13.5px'><div id=avx-tally>A = ${esc(KONFIG.wirLabel)} macht es · K = ${esc(KONFIG.kundeLabel)} macht es · X = wird gestrichen</div><div id=export-stamp></div></div>
 ${body}</section>
 
 ${KONFIG.schlussHtml ? `<div class=callout>${KONFIG.schlussHtml}</div>` : ''}
@@ -377,7 +377,7 @@ function markBtn(k,hat){
 });
 
 function tally(){
-  var sum={A:[0,0],V:[0,0],X:[0,0]},open=0,openPt=0,seen={};
+  var sum={A:[0,0],K:[0,0],X:[0,0]},open=0,openPt=0,seen={};
   boxes.forEach(function(b){
     if(seen[b.dataset.k])return; seen[b.dataset.k]=1;
     var sel=null; boxes.forEach(function(o){ if(o.dataset.k===b.dataset.k&&o.checked) sel=o; });
@@ -386,7 +386,7 @@ function tally(){
   });
   document.getElementById('avx-tally').innerHTML=
     "<b style='color:#1b4dc2'>A ${esc(KONFIG.wirLabel)}: "+sum.A[0]+" Pos. \u00b7 "+sum.A[1]+" PT</b> &nbsp;\u00b7&nbsp; "+
-    "<b style='color:#0f7b52'>V ${esc(KONFIG.kundeLabel)}: "+sum.V[0]+" Pos. \u00b7 "+sum.V[1]+" PT</b> &nbsp;\u00b7&nbsp; "+
+    "<b style='color:#0f7b52'>K ${esc(KONFIG.kundeLabel)}: "+sum.K[0]+" Pos. \u00b7 "+sum.K[1]+" PT</b> &nbsp;\u00b7&nbsp; "+
     "<b style='color:#b3261e'>X gestrichen: "+sum.X[0]+" Pos. \u00b7 "+sum.X[1]+" PT</b> &nbsp;\u00b7&nbsp; "+
     "<span style='color:#8b95a3'>offen: "+open+" Pos. \u00b7 "+openPt+" PT \u2014 wahrscheinliche Werte, ohne anteilige Projektleitung; Auswahl und Kommentare werden lokal im Browser gespeichert</span>";
 }
@@ -407,7 +407,7 @@ function exportJson(){
   var datum=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   var doc={ format:'${KONFIG.speicherKey}-auswahl', version:1,
     dokument:document.title, exportiertAm:d.toISOString(),
-    legende:{A:'${KONFIG.wirLabel} macht es',V:'${KONFIG.kundeLabel} macht es',X:'wird gestrichen'},
+    legende:{A:'${KONFIG.wirLabel} macht es',K:'${KONFIG.kundeLabel} macht es',X:'wird gestrichen'},
     auswahl:state.auswahl, kommentare:state.kommentare, positionen:positionen };
   var blob=new Blob([JSON.stringify(doc,null,2)],{type:'application/json'});
   var a=document.createElement('a');
@@ -455,7 +455,7 @@ window.addEventListener('beforeprint',function(){
   var d=new Date();
   var p=function(x){return (x<10?'0':'')+x;};
   document.getElementById('export-stamp').textContent=
-    'Exportiert am '+p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear()+' um '+p(d.getHours())+':'+p(d.getMinutes())+' Uhr \u2014 die abgebildete A/V/X-Zuordnung und die Kommentare sind der Stand zu diesem Zeitpunkt.';
+    'Exportiert am '+p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear()+' um '+p(d.getHours())+':'+p(d.getMinutes())+' Uhr \u2014 die abgebildete A/K/X-Zuordnung und die Kommentare sind der Stand zu diesem Zeitpunkt.';
 });
 })();
 </scr`+`ipt></div></body></html>`;

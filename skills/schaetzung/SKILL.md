@@ -1,6 +1,6 @@
 ---
 name: schaetzung
-description: Use when eine Aufwandsschätzung als interaktive HTML-Seite für die Kundendiskussion erstellt oder gepflegt werden soll — Trigger: "Aufwandsschätzung", "Schätzung als Seite/HTML", "PT-Schätzung", "Dreipunktschätzung", "Angebotskalkulation", "Scope-Gespräch mit dem Kunden", "A/V/X", effort estimate page, estimation breakdown. Auch beim Ändern einer bestehenden schaetzung-build.js.
+description: Use when eine Aufwandsschätzung als interaktive HTML-Seite für die Kundendiskussion erstellt oder gepflegt werden soll — Trigger: "Aufwandsschätzung", "Schätzung als Seite/HTML", "PT-Schätzung", "Dreipunktschätzung", "Angebotskalkulation", "Scope-Gespräch mit dem Kunden", "A/K/X", effort estimate page, estimation breakdown. Auch beim Ändern einer bestehenden schaetzung-build.js.
 ---
 
 # Interaktive Aufwandsschätzung (Kundendiskussions-Seite)
@@ -9,12 +9,11 @@ description: Use when eine Aufwandsschätzung als interaktive HTML-Seite für di
 
 Erzeugt aus einer Datenbasis (Blöcke → Positionen mit Dreipunktwerten und Herkunft/Annahme/Risiko)
 ein **selbstständiges HTML** zum gemeinsamen Durchgehen mit dem Kunden: Summen, Spanne und PERT
-werden berechnet, je Position gibt es A/V/X-Zuordnung (wer macht es / gestrichen), Kommentarfelder,
+werden berechnet, je Position gibt es A/K/X-Zuordnung (Anbieter macht es / Kunde macht es / gestrichen), Kommentarfelder,
 JSON-Import/-Export und PDF-Druck mit Zeitstempel.
 
 **Kernprinzip: Das HTML wird nie von Hand editiert.** Daten ändern → `node schaetzung-build.js`
-→ Ausgaben regenerieren sich. Erprobt in einem realen Angebotsprojekt mit 23 Blöcken und
-65 Positionen.
+→ Ausgaben regenerieren sich. Erprobt in einem realen Angebotsprojekt.
 
 ## When to Use
 
@@ -33,7 +32,7 @@ Blöcke abgeleitet werden — die Schätzung funktioniert aber auch ohne C4.
 2. Anpassen — nur die drei markierten Abschnitte:
    - `KONFIG`: Titel, Eyebrow, `speicherKey` (**zwingend eindeutig je Schätzung** — trennt den
      Browser-Speicherstand und das JSON-Format; sonst überschreiben sich zwei Schätzungen unter
-     derselben Adresse), `wirLabel`/`kundeLabel` (A/V-Beschriftung), `gateBlock`, `plGruppe`,
+     derselben Adresse), `wirLabel`/`kundeLabel` (A/K-Beschriftung), `gateBlock`, `plGruppe`,
      Hinweistexte, `ausgaben`
    - `BLOCKS`: `{ group, title, pt, note?, pos: [[name, [min,ml,max], herkunft, annahme|null, risiko|null], …] }`
    - `CONDITIONS`: Mitwirkungsleistungen `['B1', 'Text']`
@@ -67,7 +66,7 @@ Gesamtsumme und Spanne der KPIs · Anzahl `<input type=checkbox>` = gerenderte P
 `pv spread` genau an den Positionen mit > 5 PT Abweichung · `KONFIG.speicherKey` erscheint als
 `KEY='…'` und im JSON-Format · kein Rest eines fremden Projektnamens.
 
-**Interaktiv (wenn ein Browser verfügbar ist, sonst überspringen):** A/V/X exklusiv klickbar,
+**Interaktiv (wenn ein Browser verfügbar ist, sonst überspringen):** A/K/X exklusiv klickbar,
 Summenleiste rechnet mit · ✎ öffnet Kommentar · JSON-Export/-Import-Roundtrip · „Als PDF
 exportieren" zeigt Zeitstempel und Auswahl im Druckbild.
 

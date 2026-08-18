@@ -13,7 +13,7 @@ customer**, not just read. One generator script, one data structure, zero depend
 - **Derivation per position**: origin of the requirement (Herkunft), assumptions (Annahme),
   risks (Risiko) — the estimate explains itself
 - **Customer collaboration built in**:
-  - **A/V/X checkboxes** per position (we do it / customer does it / cut) with a sticky
+  - **A/K/X checkboxes** per position (we do it / customer does it / cut) with a sticky
     live tally of positions and person-days per category
   - **Comment fields** per position (✎), auto-saved
   - **JSON export/import** — hand the negotiation state around or archive it
