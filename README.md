@@ -17,11 +17,15 @@ customer**, not just read. One generator script, one data structure, zero depend
     live tally of positions and person-days per category
   - **Value selection** per position: click min / likely / max or type a custom PT value —
     block, group and total sums follow live ("Σ 41 → 49 PT")
+  - **Live offer total**: the KPI tiles, the composition bar and a summary line follow the
+    current cut — only positions marked A (or not yet assigned) count, K/X are excluded,
+    and the project-management share scales proportionally
   - **Comment fields** per position (✎), auto-saved
   - **JSON export/import** — hand the negotiation state around or archive it
   - **Toolbar with two dropdowns**: "Exportieren" (PDF · Excel) and "JSON" (export · import)
   - **Excel export** (.xlsx, no library): filterable position table with three-point values,
-    chosen value, A/K/X and comments, plus a live SUM row and an info sheet
+    chosen value, A/K/X and comments, an "offer PT" column (0 for K/X), SUM rows for positions,
+    proportional project management and grand total, plus an info sheet
   - **PDF export** via print dialog with a timestamp stamp ("state as of …")
 - **Contribution conditions** (B1–Bn): customer obligations the calculation depends on,
   as a first-class table

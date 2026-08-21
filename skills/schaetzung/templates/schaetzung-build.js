@@ -292,6 +292,7 @@ for (const b of BLOCKS) {
 const RENDERED_BLOCKS = bi;
 const plPt = groupSums[PL_GROUP] || 0;
 const positionenPt = BLOCKS.reduce((a, b) => a + b.pt, 0) - plPt;
+const PL_RATE = positionenPt ? plPt / positionenPt : 0;   // Projektleitung skaliert mit dem Zuschnitt
 
 const condRows = CONDITIONS.map(c => `<tr><td>${c[0]}</td><td>${esc(c[1])}</td></tr>`).join('');
 const direct = BLOCKS.reduce((a,b)=>a+b.pt,0);
@@ -307,8 +308,8 @@ for (const b of BLOCKS) {
 }
 const GROUPS = [...new Set(BLOCKS.map(b=>b.group))];
 const GRPCOLORS = ['#5b6572','#2563eb','#0f7b52','#7c3aed','#8a6300'];
-const band = GROUPS.map((g,i)=>`<div style='background:${GRPCOLORS[i%GRPCOLORS.length]};width:${(groupSums[g]/direct*100).toFixed(1)}%'>${de(groupSums[g])}</div>`).join('\n');
-const legend = GROUPS.map((g,i)=>`<span><span class=sw style='background:${GRPCOLORS[i%GRPCOLORS.length]}'></span>${esc(g)} <b>${de(groupSums[g])} PT</b></span>`).join('\n');
+const band = GROUPS.map((g,i)=>`<div data-g="${esc(g)}" data-pt="${groupSums[g]}"${g===PL_GROUP?' data-pl':''} style='background:${GRPCOLORS[i%GRPCOLORS.length]};width:${(groupSums[g]/direct*100).toFixed(1)}%'>${de(groupSums[g])}</div>`).join('\n');
+const legend = GROUPS.map((g,i)=>`<span><span class=sw style='background:${GRPCOLORS[i%GRPCOLORS.length]}'></span>${esc(g)} <b data-g="${esc(g)}" data-pt="${groupSums[g]}"${g===PL_GROUP?' data-pl':''}>${de(groupSums[g])} PT</b></span>`).join('\n');
 const sumFormel = GROUPS.map(g=>de(groupSums[g])).join(' + ');
 if (KONFIG.gateBlock && gateNr === null)
   throw new Error(`KONFIG.gateBlock "${KONFIG.gateBlock}" passt auf keinen Blocktitel`);
@@ -321,9 +322,9 @@ const html = `<!doctype html><html lang=de><head><meta charset=utf-8><meta name=
 @media(max-width:760px){.kpis{grid-template-columns:1fr}}</style></head><body><div class=wrap>
 <header class=page><div class=eyebrow>${KONFIG.eyebrow}</div><h1>${esc(KONFIG.titel)}</h1><p class=sub>${KONFIG.untertitel}</p>${KONFIG.metaHtml ? `<div class=meta>${KONFIG.metaHtml}</div>` : ''}</header>
 
-<div class=kpis>
-<div class='kpi accent'><div class=v>${de(direct)} <small>PT</small></div><div class=k>Gesamtaufwand (wahrscheinlich)</div></div>
-<div class=kpi><div class=v>${de(tmin)}–${de(tmax)} <small>PT</small></div><div class=k>Spanne (Summe aller Minima bzw. Maxima) · PERT-Erwartungswert ≈${de(pert)}</div></div>
+<div class=kpis data-pl-rate="${PL_RATE}" data-pl-ml="${plPt}" data-pl-name="${esc(PL_GROUP)}">
+<div class='kpi accent' id=kpi-gesamt><div class=v>${de(direct)} <small>PT</small></div><div class=k>Gesamtaufwand (wahrscheinlich)</div></div>
+<div class=kpi id=kpi-spanne><div class=v>${de(tmin)}–${de(tmax)} <small>PT</small></div><div class=k>Spanne (Summe aller Minima bzw. Maxima) · PERT-Erwartungswert ≈${de(pert)}</div></div>
 <div class=kpi><div class=v>B1–B${CONDITIONS.length}</div><div class=k>${esc(KONFIG.mitwirkungTitel)} (Grundlage der Kalkulation)</div></div>
 </div>
 
@@ -335,6 +336,7 @@ ${band}
 <div class=sumlegend>
 ${legend}
 </div>
+<div class=sumtotal id=sum-live hidden></div>
 <div class=sumtotal>${sumFormel} = <b>${de(direct)} PT</b>. Die Blöcke unten (1–${RENDERED_BLOCKS}) tragen zusammen ${de(positionenPt)} PT; ${plPt ? `die ${esc(PL_GROUP)} (${de(plPt)} PT) läuft über die gesamte Laufzeit und ist deshalb nicht als Einzelposition aufgeführt.` : ''}${gateHinweis}</div>
 </div></section>
 
@@ -439,6 +441,62 @@ function markBtn(k,hat){
 });
 
 function fmt(n){ return (Math.round(n*10)/10).toLocaleString('de-DE'); }
+// ── Angebotssumme: nur A + offen zaehlen, K/X raus, Projektleitung anteilig ──
+var KP=document.querySelector('.kpis');
+var PL_RATE=+KP.dataset.plRate||0, PL_ML=+KP.dataset.plMl||0;
+var ORIG={};
+(function(){
+  var g=document.getElementById('kpi-gesamt'),s=document.getElementById('kpi-spanne');
+  ORIG.gv=g.querySelector('.v').innerHTML; ORIG.gk=g.querySelector('.k').innerHTML;
+  ORIG.sv=s.querySelector('.v').innerHTML; ORIG.sk=s.querySelector('.k').innerHTML;
+  [].slice.call(document.querySelectorAll('.sumband div[data-g]')).forEach(function(d){ d.dataset.w=d.style.width; });
+})();
+function selOf(k){ return state.auswahl[k]||''; }
+function inAngebot(k){ var s=selOf(k); return s!=='K'&&s!=='X'; }
+function angebot(){
+  var r={direkt:0,min:0,max:0,ml:0,grp:{},ausK:0,ausX:0,changed:false};
+  pos.forEach(function(p){
+    var k=p.dataset.k,t=tripOf(p),e=effPt(p),s=selOf(k);
+    if(s==='K'){ r.ausK+=e; r.changed=true; return; }
+    if(s==='X'){ r.ausX+=e; r.changed=true; return; }
+    if(modeOf(p)!=='ml') r.changed=true;
+    r.direkt+=e; r.min+=t[0]; r.max+=t[2]; r.ml+=t[1];
+    var g=p.closest('.blk').dataset.g; r.grp[g]=(r.grp[g]||0)+e;
+  });
+  r.pl=Math.round(r.direkt*PL_RATE);
+  r.gesamt=r.direkt+r.pl;
+  r.smin=Math.round(r.min*(1+PL_RATE)); r.smax=Math.round(r.max*(1+PL_RATE));
+  return r;
+}
+function paintTop(a){
+  var g=document.getElementById('kpi-gesamt'),s=document.getElementById('kpi-spanne'),live=document.getElementById('sum-live');
+  var segs=[].slice.call(document.querySelectorAll('.sumband div[data-g]'));
+  var legs=[].slice.call(document.querySelectorAll('.sumlegend b[data-g]'));
+  if(!a.changed){
+    g.querySelector('.v').innerHTML=ORIG.gv; g.querySelector('.k').innerHTML=ORIG.gk;
+    s.querySelector('.v').innerHTML=ORIG.sv; s.querySelector('.k').innerHTML=ORIG.sk;
+    segs.forEach(function(d){ d.style.width=d.dataset.w; d.textContent=fmt(+d.dataset.pt); });
+    legs.forEach(function(b){ b.textContent=fmt(+b.dataset.pt)+' PT'; });
+    live.hidden=true; return;
+  }
+  g.querySelector('.v').innerHTML=fmt(a.gesamt)+' <small>PT</small>';
+  g.querySelector('.k').innerHTML='Gesamtaufwand des gewählten Zuschnitts (inkl. anteiliger Projektleitung) · Schätzung: '+ORIG.gv.replace('<small>PT</small>','PT');
+  s.querySelector('.v').innerHTML=fmt(a.smin)+'–'+fmt(a.smax)+' <small>PT</small>';
+  s.querySelector('.k').innerHTML='Spanne des gewählten Zuschnitts (Minima bzw. Maxima der enthaltenen Positionen, inkl. anteiliger Projektleitung) · Schätzung: '+ORIG.sv.replace('<small>PT</small>','PT');
+  var parts=[];
+  segs.forEach(function(d){
+    var name=d.dataset.g,v=d.dataset.pl!==undefined?a.pl:(a.grp[name]||0);
+    d.style.width=(a.gesamt?v/a.gesamt*100:0).toFixed(1)+'%'; d.textContent=v?fmt(v):'';
+    parts.push(fmt(v));
+  });
+  legs.forEach(function(b){
+    var v=b.dataset.pl!==undefined?a.pl:(a.grp[b.dataset.g]||0),o=+b.dataset.pt;
+    b.innerHTML=Math.abs(v-o)<0.05?fmt(o)+' PT':fmt(o)+' → <i>'+fmt(v)+' PT</i>';
+  });
+  var aus=[]; if(a.ausK) aus.push('K '+fmt(a.ausK)+' PT'); if(a.ausX) aus.push('X '+fmt(a.ausX)+' PT');
+  live.innerHTML='<b>Gewählter Zuschnitt: '+parts.join(' + ')+' = '+fmt(a.gesamt)+' PT</b> — Positionen mit A oder ohne Zuordnung zu den gewählten Werten'+(PL_RATE?', Projektleitung anteilig ('+(PL_RATE*100).toFixed(1).replace('.',',')+' % = '+fmt(a.pl)+' PT)':'')+(aus.length?'; nicht enthalten: '+aus.join(', '):'')+'.';
+  live.hidden=false;
+}
 function tally(){
   var sum={A:[0,0],K:[0,0],X:[0,0]},open=0,openPt=0,tot=0,totMl=0,changed=0;
   pos.forEach(function(p){
@@ -463,12 +521,14 @@ function tally(){
   var wahl = changed
     ? "<b>\u03a3 gew\u00e4hlt: "+fmt(tot)+" PT</b> <span style='color:#5b6572'>(wahrscheinlich "+fmt(totMl)+" PT, "+(delta>0?'+':'')+fmt(delta)+" PT, "+changed+" Pos. angepasst)</span> &nbsp;\u00b7&nbsp; "
     : "<span style='color:#5b6572'>\u03a3 "+fmt(tot)+" PT \u2014 wahrscheinliche Werte; min/max anklicken oder eigenen Wert eintragen</span> &nbsp;\u00b7&nbsp; ";
-  document.getElementById('werte-tally').innerHTML=wahl;
+  var ang=angebot(); paintTop(ang);
+  document.getElementById('werte-tally').innerHTML=
+    "<b>Angebot: "+fmt(ang.gesamt)+" PT</b> <span style='color:#5b6572'>= "+fmt(ang.direkt)+" PT direkt (A + offen)"+(PL_RATE?" + "+fmt(ang.pl)+" PT anteilige Projektleitung":"")+((ang.ausK||ang.ausX)?"; nicht enthalten: K "+fmt(ang.ausK)+" PT, X "+fmt(ang.ausX)+" PT":"")+"</span><br>"+wahl;
   document.getElementById('avx-tally').innerHTML=
     "<b style='color:#1b4dc2'>A ${esc(KONFIG.wirLabel)}: "+sum.A[0]+" Pos. \u00b7 "+fmt(sum.A[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
     "<b style='color:#0f7b52'>K ${esc(KONFIG.kundeLabel)}: "+sum.K[0]+" Pos. \u00b7 "+fmt(sum.K[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
     "<b style='color:#b3261e'>X gestrichen: "+sum.X[0]+" Pos. \u00b7 "+fmt(sum.X[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
-    "<span style='color:#8b95a3'>offen: "+open+" Pos. \u00b7 "+fmt(openPt)+" PT \u2014 gew\u00e4hlte Werte, ohne anteilige Projektleitung; Auswahl, Werte und Kommentare werden lokal im Browser gespeichert</span>";
+    "<span style='color:#8b95a3'>offen: "+open+" Pos. \u00b7 "+fmt(openPt)+" PT \u2014 gew\u00e4hlte Werte aller Positionen; Auswahl, Werte und Kommentare werden lokal im Browser gespeichert</span>";
 }
 tally();
 
@@ -491,7 +551,8 @@ function exportJson(){
     dokument:document.title, exportiertAm:d.toISOString(),
     legende:{A:'${KONFIG.wirLabel} macht es',K:'${KONFIG.kundeLabel} macht es',X:'wird gestrichen'},
     wertModi:{min:'Minimum',ml:'wahrscheinlicher Wert (Standard)',max:'Maximum',eigen:'eigener Wert (Feld e)'},
-    summen:{gewaehlt:Math.round(summeGewaehlt*10)/10, wahrscheinlich:summeWahrscheinlich, hinweis:'direkte PT ohne anteilige Projektleitung'},
+    summen:{gewaehlt:Math.round(summeGewaehlt*10)/10, wahrscheinlich:summeWahrscheinlich, hinweis:'direkte PT aller Positionen ohne anteilige Projektleitung',
+      angebot:(function(){ var a=angebot(); return {direkt:Math.round(a.direkt*10)/10, projektleitung:a.pl, gesamt:Math.round(a.gesamt*10)/10, plAnteil:Math.round(PL_RATE*1000)/10, spanneMin:a.smin, spanneMax:a.smax, nichtEnthaltenK:Math.round(a.ausK*10)/10, nichtEnthaltenX:Math.round(a.ausX*10)/10, hinweis:'Positionen mit A oder ohne Zuordnung, gew\u00e4hlte Werte, plus anteilige Projektleitung'}; })()},
     auswahl:state.auswahl, werte:state.werte, kommentare:state.kommentare, positionen:positionen };
   var blob=new Blob([JSON.stringify(doc,null,2)],{type:'application/json'});
   var a=document.createElement('a');
@@ -565,31 +626,38 @@ function sheetXml(rows,widths,opts){
 function exportXlsx(){
   var LEG={A:'${KONFIG.wirLabel} macht es',K:'${KONFIG.kundeLabel} macht es',X:'wird gestrichen'};
   var MOD={min:'Minimum',ml:'wahrscheinlich',max:'Maximum',eigen:'eigener Wert'};
-  var head=['Nr','Gruppe','Block','Position','Min PT','Wahrscheinlich PT','Max PT','Modus','Gew\u00e4hlt PT','Zuordnung','Zuordnung (Text)','Kommentar'];
+  var head=['Nr','Gruppe','Block','Position','Min PT','Wahrscheinlich PT','Max PT','Modus','Gew\u00e4hlt PT','Zuordnung','Zuordnung (Text)','Kommentar','Angebot PT'];
   var rows=[head];
   [].slice.call(document.querySelectorAll('.blk')).forEach(function(b){
     [].slice.call(b.querySelectorAll('.p[data-k]')).forEach(function(p){
       var k=p.dataset.k,t=tripOf(p),a=state.auswahl[k]||'';
-      rows.push([k,b.dataset.g,b.dataset.title,p.querySelector('.pn span').textContent.replace(k,'').trim(),t[0],t[1],t[2],MOD[modeOf(p)],effPt(p),a,a?LEG[a]:'offen',state.kommentare[k]||'']);
+      rows.push([k,b.dataset.g,b.dataset.title,p.querySelector('.pn span').textContent.replace(k,'').trim(),t[0],t[1],t[2],MOD[modeOf(p)],effPt(p),a,a?LEG[a]:'offen',state.kommentare[k]||'',{f:'IF(OR(J'+(rows.length+1)+'="K",J'+(rows.length+1)+'="X"),0,I'+(rows.length+1)+')'}]);
     });
   });
   var last=rows.length,tr=last+1;
-  rows.push(['','','','Summe (direkte PT, ohne anteilige Projektleitung)',{f:'SUM(E2:E'+last+')'},{f:'SUM(F2:F'+last+')'},{f:'SUM(G2:G'+last+')'},'',{f:'SUM(I2:I'+last+')'},'','','']);
+  var sumRow=last+1,R=PL_RATE.toFixed(4),pct=(PL_RATE*100).toFixed(1).replace('.',',');
+  rows.push(['','','','Summe Positionen',{f:'SUM(E2:E'+last+')'},{f:'SUM(F2:F'+last+')'},{f:'SUM(G2:G'+last+')'},'',{f:'SUM(I2:I'+last+')'},'','','',{f:'SUM(M2:M'+last+')'}]);
+  if(PL_RATE) rows.push(['','','',KP.dataset.plName+' (anteilig '+pct+' %)',{f:'ROUND(E'+sumRow+'*'+R+',0)'},{f:'ROUND(F'+sumRow+'*'+R+',0)'},{f:'ROUND(G'+sumRow+'*'+R+',0)'},'',{f:'ROUND(I'+sumRow+'*'+R+',0)'},'','','',{f:'ROUND(M'+sumRow+'*'+R+',0)'}]);
+  var endRow=sumRow+(PL_RATE?1:0);
+  rows.push(['','','','Gesamt (Spalte Angebot PT = Angebotssumme: A + offen, ohne K/X)',{f:'SUM(E'+sumRow+':E'+endRow+')'},{f:'SUM(F'+sumRow+':F'+endRow+')'},{f:'SUM(G'+sumRow+':G'+endRow+')'},'',{f:'SUM(I'+sumRow+':I'+endRow+')'},'','','',{f:'SUM(M'+sumRow+':M'+endRow+')'}]);
   var d=new Date(),pad=function(x){return (x<10?'0':'')+x;};
   var datum=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   var tot=0,totMl=0; pos.forEach(function(p){ tot+=effPt(p); totMl+=tripOf(p)[1]; });
+  var ang=angebot();
   var info=[['Feld','Wert'],['Dokument',document.title],['Exportiert am',pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())],
-    ['\u03a3 wahrscheinlich (direkt, ohne PL)',totMl],['\u03a3 gew\u00e4hlt (direkt, ohne PL)',Math.round(tot*10)/10],
+    ['\u03a3 Angebot (A + offen, inkl. anteiliger Projektleitung)',Math.round(ang.gesamt*10)/10],['davon direkte PT (A + offen)',Math.round(ang.direkt*10)/10],['davon Projektleitung anteilig',ang.pl],
+    ['Nicht enthalten: K',Math.round(ang.ausK*10)/10],['Nicht enthalten: X',Math.round(ang.ausX*10)/10],
+    ['\u03a3 wahrscheinlich alle Positionen (ohne PL)',totMl],['\u03a3 gew\u00e4hlt alle Positionen (ohne PL)',Math.round(tot*10)/10],
     ['Legende Zuordnung','A = '+LEG.A+' \u00b7 K = '+LEG.K+' \u00b7 X = '+LEG.X],
     ['Legende Modus','Minimum / wahrscheinlich (Standard) / Maximum / eigener Wert \u2014 bestimmt die Spalte \u201eGew\u00e4hlt PT\u201c'],
-    ['Hinweis','Blatt \u201ePositionen\u201c ist filterbar; die Summenzeile rechnet per Formel und folgt Filtern nicht.']];
+    ['Hinweis','Blatt \u201ePositionen\u201c ist filterbar; die Summenzeilen rechnen per Formel und folgen Filtern nicht. Spalte \u201eAngebot PT\u201c = \u201eGew\u00e4hlt PT\u201c f\u00fcr A/offen, 0 f\u00fcr K/X \u2014 darunter Projektleitung anteilig und Gesamt.']];
   var files=[
     {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
     {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
-    {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Positionen" sheetId="1" r:id="rId1"/><sheet name="Info" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Positionen!$A$1:$L$'+last+'</definedName></definedNames></workbook>'},
+    {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Positionen" sheetId="1" r:id="rId1"/><sheet name="Info" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Positionen!$A$1:$M$'+last+'</definedName></definedNames></workbook>'},
     {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
     {name:'xl/styles.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/></cellXfs></styleSheet>'},
-    {name:'xl/worksheets/sheet1.xml',data:sheetXml(rows,[6,30,34,52,8,14,8,14,11,10,16,50],{headerBold:true,freeze:true,filter:'A1:L'+last})},
+    {name:'xl/worksheets/sheet1.xml',data:sheetXml(rows,[6,30,34,52,8,14,8,14,11,10,16,50,11],{headerBold:true,freeze:true,filter:'A1:M'+last})},
     {name:'xl/worksheets/sheet2.xml',data:sheetXml(info,[34,110],{headerBold:true})}
   ];
   var a=document.createElement('a');

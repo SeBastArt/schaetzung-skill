@@ -55,9 +55,10 @@ oder `null` lassen, wenn das Projekt kein solches Gate hat.
 | Texte in `BLOCKS`/`CONDITIONS` werden escaped | kein HTML dort. In `KONFIG` sind `eyebrow`, `untertitel`, `metaHtml`, `kalkulationsmodellHtml`, `schlussHtml`, `fusszeile` **rohes HTML**; escaped werden nur `titel`, `dokumentTitel`, `mitwirkungTitel`, `gateBlock`, `wirLabel`, `kundeLabel` |
 | `gateBlock` muss exakt einem Blocktitel entsprechen | sonst harter Build-Abbruch; die Blocknummer im Erklärsatz wird automatisch ermittelt |
 | Mehrere `ausgaben` | identische Kopien (z. B. Master + Präsentationsdatei mit sprechendem Namen) |
-| Wertauswahl je Position | Standard ist der wahrscheinliche Wert; nur Abweichungen werden gespeichert (`werte[k]={m:'min'|'max'|'eigen', e?}`). Die Summenleiste zeigt „Σ gewählt" **ohne** die PL-Gruppe (direkte PT) — die KPI-Kacheln bleiben der Schätzwert |
-| JSON-Format | `<speicherKey>-auswahl`, `version: 2` — enthält `auswahl`, `werte`, `kommentare`, `summen` und je Position `ptMin/ptWahrscheinlich/ptMax/wertModus/ptGewaehlt`. Dateien ohne `werte` werden akzeptiert (Werte = Standard) |
-| Excel-Export | echtes .xlsx ohne Bibliothek (ZIP ohne Kompression + SpreadsheetML): Blatt „Positionen" (filterbar, fixierte Kopfzeile, SUM-Formeln) + Blatt „Info" (Dokument, Zeitpunkt, Summen, Legenden). Dateiname `<speicherKey>-<Datum>.xlsx` |
+| Wertauswahl je Position | Standard ist der wahrscheinliche Wert; nur Abweichungen werden gespeichert (`werte[k]={m:'min'|'max'|'eigen', e?}`) |
+| Angebotssumme (live) | zählt nur Positionen mit **A oder ohne Zuordnung** zu den gewählten Werten; K und X sind ausgenommen; die PL-Gruppe wird **anteilig** nachgezogen (`PL_RATE = plPt / Positionen-PT`, im Build berechnet). Sobald etwas abweicht, zeigen KPI-Kacheln (Gesamt, Spanne), Summenband und Legende den gewählten Zuschnitt mit Verweis auf die ursprüngliche Schätzung; ohne Abweichung erscheint die Originalansicht |
+| JSON-Format | `<speicherKey>-auswahl`, `version: 2` — enthält `auswahl`, `werte`, `kommentare`, `summen` (inkl. `angebot`: direkt, projektleitung, gesamt, Spanne, nicht enthaltene K/X) und je Position `ptMin/ptWahrscheinlich/ptMax/wertModus/ptGewaehlt`. Dateien ohne `werte` werden akzeptiert (Werte = Standard) |
+| Excel-Export | echtes .xlsx ohne Bibliothek (ZIP ohne Kompression + SpreadsheetML): Blatt „Positionen" (filterbar, fixierte Kopfzeile, Spalte „Angebot PT" = Gewählt für A/offen, 0 für K/X; Summenzeilen „Summe Positionen", PL anteilig per ROUND-Formel, „Gesamt") + Blatt „Info" (Dokument, Zeitpunkt, Summen, Legenden). Dateiname `<speicherKey>-<Datum>.xlsx` |
 
 ## Prüf-Checkliste nach jedem Build
 
@@ -76,7 +77,7 @@ das eingebettete Script parst (`new Function(scriptText)`).
 **Interaktiv (wenn ein Browser verfügbar ist, sonst überspringen):** A/K/X exklusiv klickbar,
 Summenleiste rechnet mit · min/max anklicken ändert Block-/Gruppen-/Gesamtsumme („41 → 49 PT"),
 eigener Wert überschreibt, Feld leeren setzt zurück · ✎ öffnet Kommentar · JSON-Export/-Import-
-Roundtrip (inkl. `werte`) · Werkzeugleiste: „Exportieren ▾" (PDF · Excel) und „JSON ▾" (Exportieren · Importieren) öffnen nach oben, schließen bei Klick außerhalb/Escape · Excel-Export öffnet ohne Reparaturdialog, SUM-Zeile rechnet ·
+Roundtrip (inkl. `werte`) · Werkzeugleiste: „Exportieren ▾" (PDF · Excel) und „JSON ▾" (Exportieren · Importieren) öffnen nach oben, schließen bei Klick außerhalb/Escape · K oder X setzen senkt KPI „Gesamt", Summenband und „Angebot:"-Zeile, PL-Anteil sinkt mit; Zurücksetzen stellt die Originalansicht her · Excel-Export öffnet ohne Reparaturdialog, Summenzeilen rechnen (Spalte „Angebot PT" ohne K/X) ·
 „Als PDF exportieren" zeigt Zeitstempel, Auswahl und gewählte Werte (unterstrichen) im Druckbild.
 
 ## Common Mistakes
