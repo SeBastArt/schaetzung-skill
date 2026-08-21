@@ -266,6 +266,13 @@ a{color:var(--accent)}
 .sumlegend .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:-1px}
 .sumlegend b{color:#1a1a1a}
 .sumtotal{font-size:13px;color:#1a1a1a;border-top:1px solid #eceff3;margin-top:8px;padding-top:8px}
+.lv{border-collapse:collapse;font-size:13px;margin:2px 0 4px}
+.lv th{font-weight:600;color:#5b6572;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+.lv td,.lv th{padding:2px 18px 2px 0;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lv td:first-child,.lv th:first-child{text-align:left;white-space:normal}
+.lv td.d{color:#8b95a3}
+.lv tr.sum td{border-top:1px solid #c9d3e0;font-weight:700;padding-top:4px}
+.lv tr.sum td:nth-child(3){color:#1b4dc2;font-size:14px}
 `;
 
 const groupSums = {};
@@ -347,7 +354,7 @@ ${band}
 ${legend}
 </div>
 <div class=sumtotal id=sum-live hidden></div>
-<div class=sumtotal>${sumFormel} = <b>${de(direct)} PT</b>. Die Blöcke unten (1–${RENDERED_BLOCKS}) tragen zusammen ${de(positionenPt)} PT; ${plPt ? `die ${esc(PL_GROUP)} (${de(plPt)} PT) läuft über die gesamte Laufzeit und ist deshalb nicht als Einzelposition aufgeführt.` : ''}${gateHinweis}</div>
+<div class=sumtotal>Die Blöcke unten (1–${RENDERED_BLOCKS}) tragen zusammen ${de(positionenPt)} PT; ${plPt ? `die ${esc(PL_GROUP)} (${de(plPt)} PT) läuft über die gesamte Laufzeit und ist deshalb nicht als Einzelposition aufgeführt.` : ''}${gateHinweis}</div>
 </div></section>
 
 ${KONFIG.kalkulationsmodellHtml ? `<div class=dodbox>${KONFIG.kalkulationsmodellHtml}</div>` : ''}
@@ -506,18 +513,23 @@ function paintTop(a){
   g.querySelector('.k').innerHTML='Gesamtaufwand des gewählten Zuschnitts (inkl. anteiliger Projektleitung) · Schätzung: '+ORIG.gv.replace('<small>PT</small>','PT');
   s.querySelector('.v').innerHTML=fmt(a.smin)+'–'+fmt(a.smax)+' <small>PT</small>';
   s.querySelector('.k').innerHTML='Spanne des gewählten Zuschnitts (Minima bzw. Maxima der enthaltenen Positionen, inkl. anteiliger Projektleitung) · Schätzung: '+ORIG.sv.replace('<small>PT</small>','PT');
-  var parts=[];
+  var rowsHtml='',sumO=0,sumA=0;
   segs.forEach(function(d){
-    var name=d.dataset.g,v=d.dataset.pl!==undefined?a.pl:(a.grp[name]||0);
+    var name=d.dataset.g,isPl=d.dataset.pl!==undefined,v=isPl?a.pl:(a.grp[name]||0),o=+d.dataset.pt;
     d.style.width=(a.gesamt?v/a.gesamt*100:0).toFixed(1)+'%'; d.textContent=v?fmt(v):'';
-    parts.push(fmt(v));
+    sumO+=o; sumA+=v;
+    var diff=v-o;
+    rowsHtml+='<tr><td>'+name+(isPl?' \u00b7 '+String(plPct()).replace('.',',')+' %':'')+'</td><td>'+fmt(o)+'</td><td>'+fmt(v)+'</td><td class=d>'+(Math.abs(diff)<0.05?'':(diff>0?'+':'\u2212')+fmt(Math.abs(diff)))+'</td></tr>';
   });
   legs.forEach(function(b){
     var v=b.dataset.pl!==undefined?a.pl:(a.grp[b.dataset.g]||0),o=+b.dataset.pt;
     b.innerHTML=Math.abs(v-o)<0.05?fmt(o)+' PT':fmt(o)+' → <i>'+fmt(v)+' PT</i>';
   });
+  var dS=sumA-sumO;
   var aus=[]; if(a.ausK) aus.push('K '+fmt(a.ausK)+' PT'); if(a.ausX) aus.push('X '+fmt(a.ausX)+' PT');
-  live.innerHTML='<b>Gewählter Zuschnitt: '+parts.join(' + ')+' = '+fmt(a.gesamt)+' PT</b> — Positionen mit A oder ohne Zuordnung zu den gewählten Werten'+(plRate()?', Projektleitung anteilig ('+(plRate()*100).toFixed(1).replace('.',',')+' % = '+fmt(a.pl)+' PT)':'')+(aus.length?'; nicht enthalten: '+aus.join(', '):'')+'.';
+  live.innerHTML='<table class=lv><tr><th>Anteil</th><th>Sch\u00e4tzung</th><th>Angebot</th><th></th></tr>'+rowsHtml
+    +'<tr class=sum><td>Summe (PT)</td><td>'+fmt(sumO)+'</td><td>'+fmt(sumA)+'</td><td class=d>'+(Math.abs(dS)<0.05?'':(dS>0?'+':'\u2212')+fmt(Math.abs(dS)))+'</td></tr></table>'
+    +'<div style="color:#5b6572">Angebot = Positionen mit A oder ohne Zuordnung, zu den gew\u00e4hlten Werten, plus anteilige Projektleitung.'+(aus.length?' Nicht im Angebot: '+aus.join(' \u00b7 ')+'.':'')+'</div>';
   live.hidden=false;
 }
 function tally(){
