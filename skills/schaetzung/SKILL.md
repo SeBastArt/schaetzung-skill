@@ -11,7 +11,7 @@ Erzeugt aus einer Datenbasis (Blöcke → Positionen mit Dreipunktwerten und Her
 ein **selbstständiges HTML** zum gemeinsamen Durchgehen mit dem Kunden: Summen, Spanne und PERT
 werden berechnet, je Position gibt es A/K/X-Zuordnung (Anbieter macht es / Kunde macht es / gestrichen),
 **Wertauswahl** (min / wahrscheinlich / max anklicken oder eigenen PT-Wert eintragen — Block-,
-Gruppen- und Gesamtsummen ziehen live nach), Kommentarfelder, JSON-Import/-Export, Excel-Export
+Gruppen- und Gesamtsummen ziehen live nach), **Angebotssumme** (nur A + offen, K/X ausgenommen, Projektleitung als änderbarer Prozentsatz — KPIs, Summenband, Überschrift und Erklärsatz folgen), Kommentarfelder, JSON-Import/-Export, Excel-Export
 (.xlsx) und PDF-Druck mit Zeitstempel.
 
 **Kernprinzip: Das HTML wird nie von Hand editiert.** Daten ändern → `node schaetzung-build.js`
@@ -60,6 +60,28 @@ oder `null` lassen, wenn das Projekt kein solches Gate hat.
 | JSON-Format | `<speicherKey>-auswahl`, `version: 2` — enthält `auswahl`, `werte`, `kommentare`, `summen` (inkl. `angebot`: direkt, projektleitung, gesamt, Spanne, nicht enthaltene K/X) und je Position `ptMin/ptWahrscheinlich/ptMax/wertModus/ptGewaehlt`. Dateien ohne `werte` werden akzeptiert (Werte = Standard) |
 | Excel-Export | echtes .xlsx ohne Bibliothek (ZIP ohne Kompression + SpreadsheetML): Blatt „Positionen" (filterbar, fixierte Kopfzeile, Spalte „Gewählt PT (Angebot)" nur für A/offen, K/X-Werte in „PT bei K/X (nicht angeboten)" direkt neben der Zuordnung, danach Kommentar; Summenzeilen „Summe Positionen", PL anteilig per ROUND-Formel, „Gesamt") + Blatt „Info" (Dokument, Zeitpunkt, Summen, Legenden). Dateiname `<speicherKey>-<Datum>.xlsx` |
 
+## Konsistenzregeln (aus Kundenrückmeldungen — nicht verhandelbar)
+
+Die Seite zeigt **zwei Zahlenwelten**: die *Schätzung* (wahrscheinliche Werte, alle Positionen,
+PL-Vorgabe) und das *Angebot* (gewählter Zuschnitt). Jede angezeigte Zahl muss eindeutig einer der
+beiden gehören, und **alles, was zum Angebot gehört, folgt jeder Änderung live** — A/K/X, Wertauswahl
+und PL-Prozentsatz.
+
+| Regel | Warum |
+|---|---|
+| **Angebot = Positionen mit A oder ohne Zuordnung** zu den gewählten Werten **+ Projektleitung anteilig** (Prozentfeld). K und X zählen nie ins Angebot | Kundenbefund: K/X landeten in der Summe, KPIs blieben stehen — „da geht man vom Falschen aus" |
+| Alles Sichtbare läuft mit: KPI-Kacheln, Summenband + Legende, Tabelle je Anteil, Abschnittsüberschrift, `<span class=st>`-Stellen im Erklärsatz, Summenleiste bei den Positionen, JSON, Excel | Ein einziger statischer Wert neben Live-Werten wirkt wie ein Rechenfehler |
+| Keine Summe ohne Basis: jede Zahl sagt, worüber sie summiert („alle Positionen" vs. „A + offen", „ohne PL" vs. „inkl. PL") | Die Zeile „Σ gewählt 534 PT / Angebot 503 PT" nebeneinander verstand niemand |
+| Summenleiste ist eine **Rechnung von oben nach unten**: Positionen im Angebot → + PL → = Angebotssumme; darunter „Nicht im Angebot: K · X" | Lesbarkeit im Kundengespräch |
+| PL ist ein **Prozentsatz**, kein Fixwert — Vorgabe aus den Daten (`plPt / Positionen-PT`), im Feld änderbar, gespeichert, im JSON (`projektleitungProzent`) und in der Excel-Formel | Der Kunde will den Satz diskutieren, nicht unsere Faustregel übernehmen |
+| Excel: Spalte „Gewählt PT (Angebot)" enthält **nur** angebotene Positionen; K/X-Werte stehen daneben in „PT bei K/X (nicht angeboten)"; keine redundanten Textspalten; Summenzeilen Positionen / PL / Gesamt per Formel | Wer das Excel weiterreicht, darf nicht erst Spalten interpretieren müssen |
+| Erklärtexte ohne Rechenformeln wiederholen, die Legende/Tabelle schon zeigen | doppelte Zahlen veralten zuerst |
+
+**Gestaltung:** Alle Boxen im selben Card-Stil (`.card`-Variablen: weiß, 16px-Radius, Schatten) —
+keine grauen Sonderflächen. KPI-Raster hat genau so viele Spalten wie Kacheln (3). Tagesaktuelle
+Nachträge gehören **nicht** in den Kopf der Seite (`metaHtml` nur für dauerhafte Hinweise) —
+Änderungshistorie in die Block-Notiz oder die Mitwirkungsleistung, die sie betrifft.
+
 ## Prüf-Checkliste nach jedem Build
 
 ```bash
@@ -70,22 +92,39 @@ node schaetzung-build.js   # muss ohne Blocksummen-Fehler durchlaufen; Konsole z
 die Interaktionsmechanik ist erprobt):** per node/grep gegen das erzeugte HTML prüfen:
 Gesamtsumme und Spanne der KPIs · Anzahl `<input type=checkbox>` = gerenderte Positionen × 3 ·
 Anzahl `class=w data-m=min` und `class=eigen` = gerenderte Positionen ·
-`pv spread` genau an den Positionen mit > 5 PT Abweichung · `KONFIG.speicherKey` erscheint als
-`KEY='…'`, im JSON-Format und im xlsx-Dateinamen · kein Rest eines fremden Projektnamens ·
-das eingebettete Script parst (`new Function(scriptText)`).
+`pv spread` genau an den Positionen mit > 5 PT Abweichung · `data-pl-rate` am `.kpis`-Container
+= plPt / Positionen-PT · `id=pl-pct`, `id=sum-live`, `id=sec-sum-h` vorhanden · `KONFIG.speicherKey`
+erscheint als `KEY='…'`, im JSON-Format und im xlsx-Dateinamen · kein Rest eines fremden
+Projektnamens · das eingebettete Script parst (`new Function(scriptText)`).
 
-**Interaktiv (wenn ein Browser verfügbar ist, sonst überspringen):** A/K/X exklusiv klickbar,
-Summenleiste zeigt die Rechnung „Positionen im Angebot + Projektleitung = Angebotssumme" und darunter „Nicht im Angebot: K · X" · min/max anklicken ändert Block-/Gruppen-/Gesamtsumme („41 → 49 PT"),
-eigener Wert überschreibt, Feld leeren setzt zurück · ✎ öffnet Kommentar · JSON-Export/-Import-
-Roundtrip (inkl. `werte`) · Werkzeugleiste: „Exportieren ▾" (PDF · Excel) und „JSON ▾" (Exportieren · Importieren) öffnen nach oben, schließen bei Klick außerhalb/Escape · K oder X setzen senkt KPI „Gesamt", Summenband und „Angebot:"-Zeile, PL-Anteil sinkt mit; Zurücksetzen stellt die Originalansicht her · Excel-Export öffnet ohne Reparaturdialog, Summenzeilen rechnen (Spalte „Angebot PT" ohne K/X) ·
-„Als PDF exportieren" zeigt Zeitstempel, Auswahl und gewählte Werte (unterstrichen) im Druckbild.
+**Interaktiv (Browser, wenn verfügbar — per DevTools/Extension, nicht headless mit Fremdbrowsern):**
+1. Frischer Stand: KPI = Schätzwert, Überschrift „So setzen sich die N PT zusammen", Tabelle unter
+   dem Band ausgeblendet, PL-Feld zeigt die Vorgabe.
+2. Eine Position auf **K**, eine auf **X**, eine auf **max**: KPI „Gesamt" und Spanne sinken/steigen
+   passend, Band/Legende zeigen „388 → 375 PT", Tabelle Schätzung · Angebot · Differenz erscheint,
+   Überschrift wird „So setzt sich das Angebot von … zusammen", Summenleiste rechnet
+   Positionen + PL = Angebotssumme, „Nicht im Angebot" nennt K/X.
+3. **PL-Prozent ändern** (z. B. 20): PL-Zeile, KPI, Tabelle, Erklärsatz (Prozent, PL-PT, Gate, Gesamt)
+   folgen; Feld leeren → Vorgabe.
+4. Reload: Stand bleibt. Alles zurücksetzen → exakt die Originalansicht.
+5. JSON-Export enthält `summen.angebot` und `projektleitungProzent`; Import stellt alles wieder her.
+6. Excel (in echtem Excel öffnen, keine Reparaturmeldung): Spalte I leer bei K/X, Spalte K gefüllt,
+   Summenzeilen = Werte der Seite (Positionen / PL per `ROUND(I*rate)` / Gesamt).
+7. Werkzeugleiste: „Exportieren ▾" (PDF · Excel), „JSON ▾" (Exportieren · Importieren) öffnen nach
+   oben, schließen bei Klick außerhalb/Escape. Druckbild: Zeitstempel, Auswahl, gewählte Werte
+   unterstrichen, PL-Prozent sichtbar.
 
 ## Common Mistakes
 
 - **Ausgabe-HTML editieren** statt Generator — nächster Build überschreibt alles
 - Blocksumme nach Positionsänderung nicht nachgezogen → Build-Abbruch ist die Diagnose, kein Bug
 - Backticks oder `${` in Datentexten → bricht das Template-Literal; Apostroph `'` in Strings escapen
-- Skalierende Querschnitte (z. B. PL ~14 %) nach Datenänderung vergessen — bewusst manuell, im
-  Konsolen-Output gegenprüfen
+- **Neue Zahl auf der Seite, die nicht an `tally()`/`paintTop()` hängt** — jede Summe, Überschrift
+  oder Erklärzahl, die vom Zuschnitt abhängt, braucht einen Live-Pfad (siehe Konsistenzregeln)
+- `type=number`-Felder bekommen Werte mit **Punkt** (`'13.6'`), nie mit Komma — sonst bleiben sie leer
+- Mechanik-Code liegt in einem Template-Literal: dort kein `${` und kein Backtick; bei Patches per
+  Skript Ersatztexte als Funktion übergeben (`s.replace(a, () => b)`), sonst zerlegt `$` den Text
+- Skalierende Querschnitte (PL) nach Datenänderung: Vorgabe wird aus den Daten berechnet, der
+  Konsolen-Output zeigt den Ist-Anteil — die PL-Position in den Daten trotzdem nachziehen
 - localStorage der Seite ist **pro Browser und Adresse** (file:// vs. localhost = getrennte Stände);
   Übergabe zwischen Rechnern läuft über den JSON-Export
