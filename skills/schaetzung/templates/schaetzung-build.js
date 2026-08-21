@@ -330,8 +330,9 @@ const legend = GROUPS.map((g,i)=>`<span><span class=sw style='background:${GRPCO
 const sumFormel = GROUPS.map(g=>de(groupSums[g])).join(' + ');
 if (KONFIG.gateBlock && gateNr === null)
   throw new Error(`KONFIG.gateBlock "${KONFIG.gateBlock}" passt auf keinen Blocktitel`);
+const gatePt = KONFIG.gateBlock ? (BLOCKS.find(b => b.title === KONFIG.gateBlock) || {pt:0}).pt : 0;
 const gateHinweis = KONFIG.gateBlock
-  ? ` Der empfohlene erste Umsetzungsschritt ist <b>Block ${gateNr} „${esc(KONFIG.gateBlock)}“ (GATE 1)</b>; er ist Teil der ${de(direct)}, kein Zuschlag.`
+  ? ` Der empfohlene erste Umsetzungsschritt ist <b>Block ${gateNr} „${esc(KONFIG.gateBlock)}“ (GATE 1, <span class=st data-k=gate>${gatePt} PT + anteilige ${esc(PL_GROUP)} ≈ ${Math.round(gatePt*(1+PL_RATE))} PT</span>)</b>; er ist Teil der <span class=st data-k=gesamt>${de(direct)} PT</span>, kein Zuschlag.`
   : '';
 
 const html = `<!doctype html><html lang=de><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>${esc(KONFIG.dokumentTitel)}</title><style>${CSS}
@@ -345,7 +346,7 @@ const html = `<!doctype html><html lang=de><head><meta charset=utf-8><meta name=
 <div class=kpi><div class=v>B1–B${CONDITIONS.length}</div><div class=k>${esc(KONFIG.mitwirkungTitel)} (Grundlage der Kalkulation)</div></div>
 </div>
 
-<section><div class=sectitle><h2>So setzen sich die ${de(direct)} PT zusammen</h2><span class=hint>wahrscheinliche Werte</span></div>
+<section><div class=sectitle><h2 id=sec-sum-h>So setzen sich die ${de(direct)} PT zusammen</h2><span class=hint id=sec-sum-hint>wahrscheinliche Werte</span></div>
 <div class=card style='padding:14px 18px'>
 <div class=sumband>
 ${band}
@@ -354,7 +355,7 @@ ${band}
 ${legend}
 </div>
 <div class=sumtotal id=sum-live hidden></div>
-<div class=sumtotal>Die Blöcke unten (1–${RENDERED_BLOCKS}) tragen zusammen ${de(positionenPt)} PT; ${plPt ? `die ${esc(PL_GROUP)} (${de(plPt)} PT) läuft über die gesamte Laufzeit und ist deshalb nicht als Einzelposition aufgeführt.` : ''}${gateHinweis}</div>
+<div class=sumtotal>Die Blöcke unten (1–${RENDERED_BLOCKS}) tragen zusammen <span class=st data-k=direkt>${de(positionenPt)} PT</span>; ${plPt ? `die ${esc(PL_GROUP)} (<span class=st data-k=pct>${(100*PL_RATE).toFixed(1).replace('.',',')} %</span> davon, <span class=st data-k=pl>${de(plPt)} PT</span>) läuft über die gesamte Laufzeit und ist deshalb nicht als Einzelposition aufgeführt; der Prozentsatz lässt sich bei den Positionen anpassen.` : ''}${gateHinweis}</div>
 </div></section>
 
 ${KONFIG.kalkulationsmodellHtml ? `<div class=dodbox>${KONFIG.kalkulationsmodellHtml}</div>` : ''}
@@ -498,6 +499,32 @@ function angebot(){
   r.smin=Math.round(r.min*(1+plRate())); r.smax=Math.round(r.max*(1+plRate()));
   return r;
 }
+var TXT={};
+[].slice.call(document.querySelectorAll('#sec-sum-h,#sec-sum-hint,.st')).forEach(function(el){ TXT[el.id||el.className+'-'+el.dataset.k]=el.innerHTML; });
+function gateBase(){
+  var blk=document.querySelector('.blk:has(.gatetag)'); if(!blk) return null;
+  var s=0; [].slice.call(blk.querySelectorAll('.p[data-k]')).forEach(function(p){ if(inAngebot(p.dataset.k)) s+=effPt(p); });
+  return s;
+}
+function paintText(a){
+  var h=document.getElementById('sec-sum-h'),hint=document.getElementById('sec-sum-hint');
+  var pct=String(plPct()).replace('.',',');
+  if(!a){
+    h.innerHTML=TXT['sec-sum-h']; hint.innerHTML=TXT['sec-sum-hint'];
+    [].slice.call(document.querySelectorAll('.st')).forEach(function(el){ el.innerHTML=TXT[el.className+'-'+el.dataset.k]; });
+    return;
+  }
+  h.innerHTML='So setzt sich das Angebot von '+fmt(a.gesamt)+' PT zusammen';
+  hint.innerHTML='gew\u00e4hlter Zuschnitt \u00b7 Sch\u00e4tzung: '+ORIG.gv.replace('<small>PT</small>','PT');
+  [].slice.call(document.querySelectorAll('.st')).forEach(function(el){
+    var k=el.dataset.k;
+    if(k==='pct') el.textContent=pct+' %';
+    else if(k==='pl') el.textContent=fmt(a.pl)+' PT';
+    else if(k==='direkt') el.textContent=fmt(a.direkt)+' PT';
+    else if(k==='gesamt') el.textContent=fmt(a.gesamt)+' PT';
+    else if(k==='gate'){ var g=gateBase(); if(g!==null) el.textContent=fmt(g)+' PT + anteilige Projektleitung \u2248 '+fmt(Math.round(g*(1+plRate())))+' PT'; }
+  });
+}
 function paintTop(a){
   var g=document.getElementById('kpi-gesamt'),s=document.getElementById('kpi-spanne'),live=document.getElementById('sum-live');
   var segs=[].slice.call(document.querySelectorAll('.sumband div[data-g]'));
@@ -507,7 +534,7 @@ function paintTop(a){
     s.querySelector('.v').innerHTML=ORIG.sv; s.querySelector('.k').innerHTML=ORIG.sk;
     segs.forEach(function(d){ d.style.width=d.dataset.w; d.textContent=fmt(+d.dataset.pt); });
     legs.forEach(function(b){ b.textContent=fmt(+b.dataset.pt)+' PT'; });
-    live.hidden=true; return;
+    live.hidden=true; paintText(null); return;
   }
   g.querySelector('.v').innerHTML=fmt(a.gesamt)+' <small>PT</small>';
   g.querySelector('.k').innerHTML='Gesamtaufwand des gewählten Zuschnitts (inkl. anteiliger Projektleitung) · Schätzung: '+ORIG.gv.replace('<small>PT</small>','PT');
@@ -530,7 +557,7 @@ function paintTop(a){
   live.innerHTML='<table class=lv><tr><th>Anteil</th><th>Sch\u00e4tzung</th><th>Angebot</th><th></th></tr>'+rowsHtml
     +'<tr class=sum><td>Summe (PT)</td><td>'+fmt(sumO)+'</td><td>'+fmt(sumA)+'</td><td class=d>'+(Math.abs(dS)<0.05?'':(dS>0?'+':'\u2212')+fmt(Math.abs(dS)))+'</td></tr></table>'
     +'<div style="color:#5b6572">Angebot = Positionen mit A oder ohne Zuordnung, zu den gew\u00e4hlten Werten, plus anteilige Projektleitung.'+(aus.length?' Nicht im Angebot: '+aus.join(' \u00b7 ')+'.':'')+'</div>';
-  live.hidden=false;
+  live.hidden=false; paintText(a);
 }
 function tally(){
   var sum={A:[0,0],K:[0,0],X:[0,0]},open=0,openPt=0,tot=0,totMl=0,changed=0;
