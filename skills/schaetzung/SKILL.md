@@ -75,7 +75,7 @@ Anzahl `class=w data-m=min` und `class=eigen` = gerenderte Positionen ·
 das eingebettete Script parst (`new Function(scriptText)`).
 
 **Interaktiv (wenn ein Browser verfügbar ist, sonst überspringen):** A/K/X exklusiv klickbar,
-Summenleiste rechnet mit · min/max anklicken ändert Block-/Gruppen-/Gesamtsumme („41 → 49 PT"),
+Summenleiste zeigt die Rechnung „Positionen im Angebot + Projektleitung = Angebotssumme" und darunter „Nicht im Angebot: K · X" · min/max anklicken ändert Block-/Gruppen-/Gesamtsumme („41 → 49 PT"),
 eigener Wert überschreibt, Feld leeren setzt zurück · ✎ öffnet Kommentar · JSON-Export/-Import-
 Roundtrip (inkl. `werte`) · Werkzeugleiste: „Exportieren ▾" (PDF · Excel) und „JSON ▾" (Exportieren · Importieren) öffnen nach oben, schließen bei Klick außerhalb/Escape · K oder X setzen senkt KPI „Gesamt", Summenband und „Angebot:"-Zeile, PL-Anteil sinkt mit; Zurücksetzen stellt die Originalansicht her · Excel-Export öffnet ohne Reparaturdialog, Summenzeilen rechnen (Spalte „Angebot PT" ohne K/X) ·
 „Als PDF exportieren" zeigt Zeitstempel, Auswahl und gewählte Werte (unterstrichen) im Druckbild.

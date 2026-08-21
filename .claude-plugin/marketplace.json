@@ -3,7 +3,7 @@
     {
       "name": "schaetzung",
       "description": "Interactive effort-estimation pages for customer scope discussions — three-point estimates with per-item derivation (origin, assumptions, risks), A/K/X scope assignment, comments, JSON import/export and PDF print. German-language output.",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "source": {
         "source": "github",
         "repo": "SeBastArt/schaetzung-skill"

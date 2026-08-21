@@ -224,6 +224,11 @@ a{color:var(--accent)}
 .cmt:focus{border-color:#d9c264;box-shadow:0 0 0 3px rgba(217,194,100,.18)}
 .cmt:empty::before{content:attr(data-ph);color:#b3a76a}
 #werte-tally{margin-bottom:3px}
+.tl{border-collapse:collapse;margin:2px 0 6px}
+.tl td{padding:1px 10px 1px 0;vertical-align:baseline}
+.tl td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700}
+.tl tr.sum td{border-top:1px solid #c9d3e0;padding-top:3px}
+.tl tr.sum td.n{font-size:15px;color:#1b4dc2}
 #pl-ctl{margin:2px 0 6px;color:#37414d}
 #pl-pct{width:64px;font:inherit;font-weight:700;color:#1b4dc2;text-align:right;border:1px solid #c9d3e0;border-radius:6px;padding:2px 6px;background:#fff}
 #pl-pct:focus{outline:2px solid #1b4dc2;outline-offset:1px}
@@ -535,19 +540,20 @@ function tally(){
     var orig=+g.dataset.pt,s=grp[g.dataset.g]||0,name=g.dataset.g;
     g.innerHTML = Math.abs(s-orig)<0.05 ? name+' \u00b7 '+fmt(orig)+' PT' : name+' \u00b7 '+fmt(orig)+' \u2192 <i>'+fmt(s)+' PT</i>';
   });
-  var delta=tot-totMl;
-  var wahl = changed
-    ? "<b>\u03a3 gew\u00e4hlt: "+fmt(tot)+" PT</b> <span style='color:#5b6572'>(wahrscheinlich "+fmt(totMl)+" PT, "+(delta>0?'+':'')+fmt(delta)+" PT, "+changed+" Pos. angepasst)</span> &nbsp;\u00b7&nbsp; "
-    : "<span style='color:#5b6572'>\u03a3 "+fmt(tot)+" PT \u2014 wahrscheinliche Werte; min/max anklicken oder eigenen Wert eintragen</span> &nbsp;\u00b7&nbsp; ";
   var ang=angebot(); paintTop(ang);
   document.getElementById('pl-ctl-hint').textContent='= '+fmt(ang.pl)+' PT'+(Math.abs(plPct()-PL_DEF)>0.001?' (Sch\u00e4tzung: '+String(PL_DEF).replace('.',',')+' % = '+fmt(PL_ML)+' PT)':'');
-  document.getElementById('werte-tally').innerHTML=
-    "<b>Angebot: "+fmt(ang.gesamt)+" PT</b> <span style='color:#5b6572'>= "+fmt(ang.direkt)+" PT direkt (A + offen)"+(plRate()?" + "+fmt(ang.pl)+" PT anteilige Projektleitung":"")+((ang.ausK||ang.ausX)?"; nicht enthalten: K "+fmt(ang.ausK)+" PT, X "+fmt(ang.ausX)+" PT":"")+"</span><br>"+wahl;
+  var delta=tot-totMl;
+  var zeilen='<tr><td class=n>'+fmt(ang.direkt)+' PT</td><td>Positionen im Angebot: <b style="color:#1b4dc2">A ${esc(KONFIG.wirLabel)} \u00b7 '+sum.A[0]+' Pos. \u00b7 '+fmt(sum.A[1])+' PT</b>'
+    +(open?' + <span style="color:#8b95a3">offen (noch nicht zugeordnet, z\u00e4hlt mit) \u00b7 '+open+' Pos. \u00b7 '+fmt(openPt)+' PT</span>':'')+'</td></tr>';
+  if(plRate()) zeilen+='<tr><td class=n>+ '+fmt(ang.pl)+' PT</td><td>Projektleitung \u00b7 '+String(plPct()).replace('.',',')+' % der Positionen im Angebot</td></tr>';
+  zeilen+='<tr class=sum><td class=n>= '+fmt(ang.gesamt)+' PT</td><td><b>Angebotssumme</b>'+(ang.changed?' <span style="color:#5b6572">\u2014 Sch\u00e4tzung vor Anpassung: '+fmt(totMl+PL_ML)+' PT</span>':' <span style="color:#5b6572">\u2014 entspricht der Sch\u00e4tzung; A/K/X setzen, min/max anklicken oder eigenen Wert eintragen</span>')+'</td></tr>';
+  document.getElementById('werte-tally').innerHTML='<table class=tl>'+zeilen+'</table>';
   document.getElementById('avx-tally').innerHTML=
-    "<b style='color:#1b4dc2'>A ${esc(KONFIG.wirLabel)}: "+sum.A[0]+" Pos. \u00b7 "+fmt(sum.A[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
-    "<b style='color:#0f7b52'>K ${esc(KONFIG.kundeLabel)}: "+sum.K[0]+" Pos. \u00b7 "+fmt(sum.K[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
-    "<b style='color:#b3261e'>X gestrichen: "+sum.X[0]+" Pos. \u00b7 "+fmt(sum.X[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
-    "<span style='color:#8b95a3'>offen: "+open+" Pos. \u00b7 "+fmt(openPt)+" PT \u2014 gew\u00e4hlte Werte aller Positionen; Auswahl, Werte und Kommentare werden lokal im Browser gespeichert</span>";
+    "<span style='color:#5b6572'>Nicht im Angebot:</span> "+
+    "<b style='color:#0f7b52'>K ${esc(KONFIG.kundeLabel)} \u00b7 "+sum.K[0]+" Pos. \u00b7 "+fmt(sum.K[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
+    "<b style='color:#b3261e'>X gestrichen \u00b7 "+sum.X[0]+" Pos. \u00b7 "+fmt(sum.X[1])+" PT</b>"+
+    (changed?" &nbsp;\u00b7&nbsp; <span style='color:#5b6572'>"+changed+" Pos. mit ge\u00e4ndertem Wert ("+(delta>0?'+':'')+fmt(delta)+" PT gegen\u00fcber wahrscheinlich, \u00fcber alle Positionen)</span>":"")+
+    " <span style='color:#8b95a3'>\u2014 Auswahl, Werte und Kommentare werden lokal im Browser gespeichert</span>";
 }
 tally();
 
