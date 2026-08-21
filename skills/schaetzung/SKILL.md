@@ -9,8 +9,10 @@ description: Use when eine Aufwandsschätzung als interaktive HTML-Seite für di
 
 Erzeugt aus einer Datenbasis (Blöcke → Positionen mit Dreipunktwerten und Herkunft/Annahme/Risiko)
 ein **selbstständiges HTML** zum gemeinsamen Durchgehen mit dem Kunden: Summen, Spanne und PERT
-werden berechnet, je Position gibt es A/K/X-Zuordnung (Anbieter macht es / Kunde macht es / gestrichen), Kommentarfelder,
-JSON-Import/-Export und PDF-Druck mit Zeitstempel.
+werden berechnet, je Position gibt es A/K/X-Zuordnung (Anbieter macht es / Kunde macht es / gestrichen),
+**Wertauswahl** (min / wahrscheinlich / max anklicken oder eigenen PT-Wert eintragen — Block-,
+Gruppen- und Gesamtsummen ziehen live nach), Kommentarfelder, JSON-Import/-Export, Excel-Export
+(.xlsx) und PDF-Druck mit Zeitstempel.
 
 **Kernprinzip: Das HTML wird nie von Hand editiert.** Daten ändern → `node schaetzung-build.js`
 → Ausgaben regenerieren sich. Erprobt in einem realen Angebotsprojekt.
@@ -53,6 +55,9 @@ oder `null` lassen, wenn das Projekt kein solches Gate hat.
 | Texte in `BLOCKS`/`CONDITIONS` werden escaped | kein HTML dort. In `KONFIG` sind `eyebrow`, `untertitel`, `metaHtml`, `kalkulationsmodellHtml`, `schlussHtml`, `fusszeile` **rohes HTML**; escaped werden nur `titel`, `dokumentTitel`, `mitwirkungTitel`, `gateBlock`, `wirLabel`, `kundeLabel` |
 | `gateBlock` muss exakt einem Blocktitel entsprechen | sonst harter Build-Abbruch; die Blocknummer im Erklärsatz wird automatisch ermittelt |
 | Mehrere `ausgaben` | identische Kopien (z. B. Master + Präsentationsdatei mit sprechendem Namen) |
+| Wertauswahl je Position | Standard ist der wahrscheinliche Wert; nur Abweichungen werden gespeichert (`werte[k]={m:'min'|'max'|'eigen', e?}`). Die Summenleiste zeigt „Σ gewählt" **ohne** die PL-Gruppe (direkte PT) — die KPI-Kacheln bleiben der Schätzwert |
+| JSON-Format | `<speicherKey>-auswahl`, `version: 2` — enthält `auswahl`, `werte`, `kommentare`, `summen` und je Position `ptMin/ptWahrscheinlich/ptMax/wertModus/ptGewaehlt`. Dateien ohne `werte` werden akzeptiert (Werte = Standard) |
+| Excel-Export | echtes .xlsx ohne Bibliothek (ZIP ohne Kompression + SpreadsheetML): Blatt „Positionen" (filterbar, fixierte Kopfzeile, SUM-Formeln) + Blatt „Info" (Dokument, Zeitpunkt, Summen, Legenden). Dateiname `<speicherKey>-<Datum>.xlsx` |
 
 ## Prüf-Checkliste nach jedem Build
 
@@ -63,12 +68,16 @@ node schaetzung-build.js   # muss ohne Blocksummen-Fehler durchlaufen; Konsole z
 **Statisch (für Agenten ausreichend, solange Abschnitt 3 „MECHANIK" unangetastet blieb —
 die Interaktionsmechanik ist erprobt):** per node/grep gegen das erzeugte HTML prüfen:
 Gesamtsumme und Spanne der KPIs · Anzahl `<input type=checkbox>` = gerenderte Positionen × 3 ·
+Anzahl `class=w data-m=min` und `class=eigen` = gerenderte Positionen ·
 `pv spread` genau an den Positionen mit > 5 PT Abweichung · `KONFIG.speicherKey` erscheint als
-`KEY='…'` und im JSON-Format · kein Rest eines fremden Projektnamens.
+`KEY='…'`, im JSON-Format und im xlsx-Dateinamen · kein Rest eines fremden Projektnamens ·
+das eingebettete Script parst (`new Function(scriptText)`).
 
 **Interaktiv (wenn ein Browser verfügbar ist, sonst überspringen):** A/K/X exklusiv klickbar,
-Summenleiste rechnet mit · ✎ öffnet Kommentar · JSON-Export/-Import-Roundtrip · „Als PDF
-exportieren" zeigt Zeitstempel und Auswahl im Druckbild.
+Summenleiste rechnet mit · min/max anklicken ändert Block-/Gruppen-/Gesamtsumme („41 → 49 PT"),
+eigener Wert überschreibt, Feld leeren setzt zurück · ✎ öffnet Kommentar · JSON-Export/-Import-
+Roundtrip (inkl. `werte`) · Excel-Export öffnet ohne Reparaturdialog, SUM-Zeile rechnet ·
+„Als PDF exportieren" zeigt Zeitstempel, Auswahl und gewählte Werte (unterstrichen) im Druckbild.
 
 ## Common Mistakes
 

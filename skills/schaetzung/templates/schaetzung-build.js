@@ -1,7 +1,7 @@
 // Generator für eine interaktive Aufwandsschätzungs-Seite (ein selbstständiges HTML).
 // Anpassen: KONFIG + BLOCKS + CONDITIONS. Dann: node schaetzung-build.js
-// Alles Weitere (Summen, Spanne, PERT, Summenband, 5-PT-Markierung, A/K/X-Checkboxen,
-// Kommentare, JSON-Import/-Export, PDF-Druck) wird aus den Daten berechnet.
+// Alles Weitere (Summen, Spanne, PERT, Summenband, 5-PT-Markierung, A/K/X-Checkboxen, Wertauswahl
+// min/wahrscheinlich/max/eigen, Kommentare, JSON-Import/-Export, Excel-Export, PDF-Druck) wird aus den Daten berechnet.
 const fs = require('fs');
 const path = require('path');
 
@@ -75,7 +75,7 @@ const CONDITIONS = [
 // ═══════════════════════ 3. MECHANIK (nicht anpassen) ═══════════════════════
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const de = n => n.toLocaleString('de-DE');
-const trip = t => `${t[0]} · <b>${t[1]}</b> · ${t[2]}`;
+const trip = t => `<span class=w data-m=min title="Minimum übernehmen">${t[0]}</span> · <span class="w on" data-m=ml title="Wahrscheinlichen Wert übernehmen">${t[1]}</span> · <span class=w data-m=max title="Maximum übernehmen">${t[2]}</span> · <input class=eigen type=number min=0 step=1 placeholder=eigen title="Eigener Wert in PT — überschreibt die Auswahl">`;
 
 const CSS = `
 :root{
@@ -189,7 +189,14 @@ a{color:var(--accent)}
 .p .pn > span:first-child{flex:1}
 .p .pv{font-size:12.5px;font-weight:400;white-space:nowrap;color:#37414d;background:#f2f5f9;border:1px solid #e3e9f0;border-radius:20px;padding:1px 10px}
 .p .pv.spread{background:#fdecea;border-color:#f2c4bd;color:#7a2a22}
-.p .pv.spread b{color:#b3261e}
+.p .pv.spread .w.on{color:#b3261e;box-shadow:inset 0 -2px 0 #b3261e}
+.p .pv .w{cursor:pointer;padding:0 4px;border-radius:10px}
+.p .pv .w:hover{background:#dfe7f3}
+.p .pv .w.on{font-weight:700;color:#1a1a1a;background:#fff;box-shadow:inset 0 -2px 0 #1b4dc2}
+.p .pv .eigen{width:54px;font:inherit;font-size:12px;border:1px solid #cfd8e3;border-radius:8px;padding:0 5px;background:#fff;color:#37414d;-moz-appearance:textfield}
+.p .pv .eigen::-webkit-outer-spin-button,.p .pv .eigen::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.p .pv .eigen.on{font-weight:700;border-color:#1b4dc2;box-shadow:inset 0 -2px 0 #1b4dc2;color:#1a1a1a}
+.blk h3 .bs i,.grp i{font-style:normal;color:#1b4dc2}
 .avx{display:inline-flex;gap:8px;margin-right:12px}
 .avx .cb{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;cursor:pointer;user-select:none}
 .avx .cb input{width:13px;height:13px;margin:0;cursor:pointer}
@@ -208,6 +215,7 @@ a{color:var(--accent)}
 .cmt{margin-top:8px;background:#fffbe8;border:1px solid #ecdfae;border-radius:8px;padding:7px 12px;font-size:13px;line-height:1.5;color:#4d4a33;max-width:92ch;white-space:pre-wrap;outline:none}
 .cmt:focus{border-color:#d9c264;box-shadow:0 0 0 3px rgba(217,194,100,.18)}
 .cmt:empty::before{content:attr(data-ph);color:#b3a76a}
+#werte-tally{margin-bottom:3px}
 #export-stamp{display:none;font-size:12px;color:#5b6572;margin-top:6px}
 @media print{
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -222,8 +230,12 @@ a{color:var(--accent)}
   .card.blk{break-inside:auto}
   .kpis,.sumband,.sumlegend{break-inside:avoid}
   .avx .cb{color:#1a1a1a}
+  .p .pv .w{padding:0 2px}
+  .p .pv .w.on{box-shadow:none;text-decoration:underline;text-underline-offset:2px}
+  .p .pv .eigen{border:0;padding:0;width:auto;max-width:44px;background:none}
+  .p .pv .eigen:not(.on){display:none}
+  .p .pv .eigen.on{box-shadow:none;text-decoration:underline;text-underline-offset:2px}
 }
-.p .pv b{font-weight:700;color:#1a1a1a}
 .p .fld{font-size:13px;line-height:1.55;color:#4d5867;margin-top:3px;max-width:92ch}
 .p .fld b.tag{display:inline-block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:1px 6px;margin-right:6px;vertical-align:1px}
 .tag.hk{background:#e5efff;color:#1b4dc2}.tag.an{background:#e7f4ee;color:#0f7b52}.tag.ri{background:#fdecea;color:#b3261e}
@@ -250,17 +262,17 @@ let gateNr = null;
 for (const b of BLOCKS) {
   if (b.group === PL_GROUP) continue;
   bi++;
-  if (b.group !== curGroup) { curGroup = b.group; body += `<div class=grp>${esc(curGroup)} · ${de(groupSums[curGroup])} PT</div>`; }
+  if (b.group !== curGroup) { curGroup = b.group; body += `<div class=grp data-g="${esc(curGroup)}" data-pt="${groupSums[curGroup]}">${esc(curGroup)} · ${de(groupSums[curGroup])} PT</div>`; }
   const gate = b.title === KONFIG.gateBlock ? ` <span class=gatetag>GATE 1</span>` : '';
   if (b.title === KONFIG.gateBlock) gateNr = bi;
-  body += `<div class='card blk'><h3><span>${bi}. ${esc(b.title)}${gate}</span><span class=bs>Σ ${de(b.pt)} PT</span></h3>`;
+  body += `<div class='card blk' data-g="${esc(b.group)}" data-title="${esc(b.title)}"><h3><span>${bi}. ${esc(b.title)}${gate}</span><span class=bs data-pt="${b.pt}">Σ ${de(b.pt)} PT</span></h3>`;
   if (b.note) body += `<div class=bnote>${esc(b.note)}</div>`;
   let pi = 0;
   for (const [name, t, hk, an, ri] of b.pos) {
     pi++;
     const spread = Math.abs(t[1]-t[0]) > 5 || Math.abs(t[2]-t[1]) > 5;
     const avx = ['A','K','X'].map(v => `<label class="cb ${v.toLowerCase()}" title="${v==='A'?esc(KONFIG.wirLabel)+' macht es':v==='K'?esc(KONFIG.kundeLabel)+' macht es':'wird gestrichen'}"><input type=checkbox data-k="${bi}.${pi}" data-pt="${t[1]}" value=${v}>${v}</label>`).join('');
-    body += `<div class=p data-k="${bi}.${pi}"><div class=pn><span>${bi}.${pi} ${esc(name)}</span><span class=avx>${avx}<button class=cmt-btn type=button title="Kommentar hinzufügen">✎</button></span><span class="pv${spread?" spread":""}">${trip(t)} PT</span></div>`
+    body += `<div class=p data-k="${bi}.${pi}" data-t="${t.join(',')}"><div class=pn><span>${bi}.${pi} ${esc(name)}</span><span class=avx>${avx}<button class=cmt-btn type=button title="Kommentar hinzufügen">✎</button></span><span class="pv${spread?" spread":""}">${trip(t)} PT</span></div>`
       + `<div class=fld><b class='tag hk'>Herkunft</b>${esc(hk)}</div>`
       + (an ? `<div class=fld><b class='tag an'>Annahme</b>${esc(an)}</div>` : '')
       + (ri ? `<div class=fld><b class='tag ri'>Risiko</b>${esc(ri)}</div>` : '')
@@ -325,7 +337,7 @@ ${KONFIG.kalkulationsmodellHtml ? `<div class=dodbox>${KONFIG.kalkulationsmodell
 <p style='font-size:12.5px;color:#5b6572;margin:8px 10px'>Entfällt oder verzögert sich eine Mitwirkungsleistung, werden die davon abhängigen Positionen neu bewertet.</p></div></section>
 
 <section><div class=sectitle><h2>Positionen</h2><span class=hint>je Position: min · wahrscheinlich · max PT — <span style="background:#fdecea;border:1px solid #f2c4bd;border-radius:20px;padding:0 8px;color:#7a2a22">rot</span> = min oder max weicht mehr als 5 PT vom wahrscheinlichen Wert ab</span></div>
-<div class=card style='padding:10px 18px;margin-bottom:14px;font-size:13.5px'><div id=avx-tally>A = ${esc(KONFIG.wirLabel)} macht es · K = ${esc(KONFIG.kundeLabel)} macht es · X = wird gestrichen</div><div id=export-stamp></div></div>
+<div class=card style='padding:10px 18px;margin-bottom:14px;font-size:13.5px'><div id=werte-tally></div><div id=avx-tally>A = ${esc(KONFIG.wirLabel)} macht es · K = ${esc(KONFIG.kundeLabel)} macht es · X = wird gestrichen</div><div id=export-stamp></div></div>
 ${body}</section>
 
 ${KONFIG.schlussHtml ? `<div class=callout>${KONFIG.schlussHtml}</div>` : ''}
@@ -334,15 +346,57 @@ ${KONFIG.schlussHtml ? `<div class=callout>${KONFIG.schlussHtml}</div>` : ''}
 <script>
 (function(){
 var KEY='${KONFIG.speicherKey}';
-var state={auswahl:{},kommentare:{}};
+var state={auswahl:{},kommentare:{},werte:{}};
 try{
   var raw=localStorage.getItem(KEY);
-  if(raw){ var p=JSON.parse(raw); if(p&&typeof p==='object'){ state.auswahl=p.auswahl||{}; state.kommentare=p.kommentare||{}; } }
+  if(raw){ var p=JSON.parse(raw); if(p&&typeof p==='object'){ state.auswahl=p.auswahl||{}; state.kommentare=p.kommentare||{}; state.werte=(p.werte&&typeof p.werte==='object')?p.werte:{}; } }
 }catch(e){}
 function save(){ try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){} }
 
 var boxes=[].slice.call(document.querySelectorAll('.avx input'));
 var cmts=[].slice.call(document.querySelectorAll('.cmt'));
+var pos=[].slice.call(document.querySelectorAll('.p[data-k]'));
+
+// ── Wertauswahl: min / wahrscheinlich / max / eigener Wert ──
+function tripOf(p){ return p.dataset.t.split(',').map(Number); }
+function modeOf(p){ var w=state.werte[p.dataset.k]; return (w&&w.m)||'ml'; }
+function effPt(p){
+  var t=tripOf(p),w=state.werte[p.dataset.k];
+  if(!w) return t[1];
+  if(w.m==='eigen') return (typeof w.e==='number'&&isFinite(w.e))?w.e:t[1];
+  return w.m==='min'?t[0]:w.m==='max'?t[2]:t[1];
+}
+function setWert(k,m,e){
+  var w=state.werte[k]||{};
+  if(m!==undefined) w.m=m;
+  if(e!==undefined){ if(e===null) delete w.e; else w.e=e; }
+  if(w.m==='eigen'&&w.e===undefined) w.m='ml';
+  if((!w.m||w.m==='ml')&&w.e===undefined) delete state.werte[k]; else { if(!w.m) w.m='ml'; state.werte[k]=w; }
+  save(); paintWerte(); tally();
+}
+function paintWerte(){
+  pos.forEach(function(p){
+    var m=modeOf(p),w=state.werte[p.dataset.k];
+    [].slice.call(p.querySelectorAll('.pv .w')).forEach(function(x){ x.classList.toggle('on',x.dataset.m===m); });
+    var e=p.querySelector('.pv .eigen');
+    if(document.activeElement!==e) e.value=(w&&typeof w.e==='number')?w.e:'';
+    e.classList.toggle('on',m==='eigen');
+  });
+}
+pos.forEach(function(p){
+  var k=p.dataset.k;
+  [].slice.call(p.querySelectorAll('.pv .w')).forEach(function(x){
+    x.addEventListener('click',function(){ setWert(k,x.dataset.m); });
+  });
+  var e=p.querySelector('.pv .eigen');
+  e.addEventListener('input',function(){
+    var v=parseFloat(e.value);
+    if(isFinite(v)&&v>=0) setWert(k,'eigen',Math.round(v*10)/10); else setWert(k,'ml',null);
+  });
+  e.addEventListener('focus',function(){ var w=state.werte[k]; if(w&&typeof w.e==='number') setWert(k,'eigen'); });
+  e.addEventListener('keydown',function(ev){ if(ev.key==='Enter') e.blur(); });
+});
+paintWerte();
 
 boxes.forEach(function(b){
   if(state.auswahl[b.dataset.k]===b.value) b.checked=true;
@@ -376,19 +430,37 @@ function markBtn(k,hat){
   });
 });
 
+function fmt(n){ return (Math.round(n*10)/10).toLocaleString('de-DE'); }
 function tally(){
-  var sum={A:[0,0],K:[0,0],X:[0,0]},open=0,openPt=0,seen={};
-  boxes.forEach(function(b){
-    if(seen[b.dataset.k])return; seen[b.dataset.k]=1;
-    var sel=null; boxes.forEach(function(o){ if(o.dataset.k===b.dataset.k&&o.checked) sel=o; });
-    var pt=+b.dataset.pt;
+  var sum={A:[0,0],K:[0,0],X:[0,0]},open=0,openPt=0,tot=0,totMl=0,changed=0;
+  pos.forEach(function(p){
+    var k=p.dataset.k,pt=effPt(p),ml=tripOf(p)[1];
+    tot+=pt; totMl+=ml; if(modeOf(p)!=='ml') changed++;
+    var sel=null; boxes.forEach(function(o){ if(o.dataset.k===k&&o.checked) sel=o; });
     if(sel){ sum[sel.value][0]++; sum[sel.value][1]+=pt; } else { open++; openPt+=pt; }
   });
+  // Block- und Gruppensummen
+  var grp={};
+  [].slice.call(document.querySelectorAll('.blk')).forEach(function(b){
+    var s=0; [].slice.call(b.querySelectorAll('.p[data-k]')).forEach(function(p){ s+=effPt(p); });
+    var bs=b.querySelector('.bs'),orig=+bs.dataset.pt;
+    bs.innerHTML = Math.abs(s-orig)<0.05 ? '\u03a3 '+fmt(orig)+' PT' : '\u03a3 '+fmt(orig)+' \u2192 <i>'+fmt(s)+' PT</i>';
+    grp[b.dataset.g]=(grp[b.dataset.g]||0)+s;
+  });
+  [].slice.call(document.querySelectorAll('.grp')).forEach(function(g){
+    var orig=+g.dataset.pt,s=grp[g.dataset.g]||0,name=g.dataset.g;
+    g.innerHTML = Math.abs(s-orig)<0.05 ? name+' \u00b7 '+fmt(orig)+' PT' : name+' \u00b7 '+fmt(orig)+' \u2192 <i>'+fmt(s)+' PT</i>';
+  });
+  var delta=tot-totMl;
+  var wahl = changed
+    ? "<b>\u03a3 gew\u00e4hlt: "+fmt(tot)+" PT</b> <span style='color:#5b6572'>(wahrscheinlich "+fmt(totMl)+" PT, "+(delta>0?'+':'')+fmt(delta)+" PT, "+changed+" Pos. angepasst)</span> &nbsp;\u00b7&nbsp; "
+    : "<span style='color:#5b6572'>\u03a3 "+fmt(tot)+" PT \u2014 wahrscheinliche Werte; min/max anklicken oder eigenen Wert eintragen</span> &nbsp;\u00b7&nbsp; ";
+  document.getElementById('werte-tally').innerHTML=wahl;
   document.getElementById('avx-tally').innerHTML=
-    "<b style='color:#1b4dc2'>A ${esc(KONFIG.wirLabel)}: "+sum.A[0]+" Pos. \u00b7 "+sum.A[1]+" PT</b> &nbsp;\u00b7&nbsp; "+
-    "<b style='color:#0f7b52'>K ${esc(KONFIG.kundeLabel)}: "+sum.K[0]+" Pos. \u00b7 "+sum.K[1]+" PT</b> &nbsp;\u00b7&nbsp; "+
-    "<b style='color:#b3261e'>X gestrichen: "+sum.X[0]+" Pos. \u00b7 "+sum.X[1]+" PT</b> &nbsp;\u00b7&nbsp; "+
-    "<span style='color:#8b95a3'>offen: "+open+" Pos. \u00b7 "+openPt+" PT \u2014 wahrscheinliche Werte, ohne anteilige Projektleitung; Auswahl und Kommentare werden lokal im Browser gespeichert</span>";
+    "<b style='color:#1b4dc2'>A ${esc(KONFIG.wirLabel)}: "+sum.A[0]+" Pos. \u00b7 "+fmt(sum.A[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
+    "<b style='color:#0f7b52'>K ${esc(KONFIG.kundeLabel)}: "+sum.K[0]+" Pos. \u00b7 "+fmt(sum.K[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
+    "<b style='color:#b3261e'>X gestrichen: "+sum.X[0]+" Pos. \u00b7 "+fmt(sum.X[1])+" PT</b> &nbsp;\u00b7&nbsp; "+
+    "<span style='color:#8b95a3'>offen: "+open+" Pos. \u00b7 "+fmt(openPt)+" PT \u2014 gew\u00e4hlte Werte, ohne anteilige Projektleitung; Auswahl, Werte und Kommentare werden lokal im Browser gespeichert</span>";
 }
 tally();
 
@@ -398,17 +470,21 @@ function exportJson(){
     var k=p.dataset.k;
     return { pos:k,
       titel:p.querySelector('.pn span').textContent.replace(k,'').trim(),
-      ptWahrscheinlich:+p.querySelector('.avx input').dataset.pt,
+      ptMin:tripOf(p)[0], ptWahrscheinlich:tripOf(p)[1], ptMax:tripOf(p)[2],
+      wertModus:modeOf(p), ptGewaehlt:effPt(p),
       auswahl:state.auswahl[k]||null,
       kommentar:state.kommentare[k]||null };
   });
   var d=new Date();
   var pad=function(x){return (x<10?'0':'')+x;};
   var datum=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-  var doc={ format:'${KONFIG.speicherKey}-auswahl', version:1,
+  var summeGewaehlt=0,summeWahrscheinlich=0; pos.forEach(function(p){ summeGewaehlt+=effPt(p); summeWahrscheinlich+=tripOf(p)[1]; });
+  var doc={ format:'${KONFIG.speicherKey}-auswahl', version:2,
     dokument:document.title, exportiertAm:d.toISOString(),
     legende:{A:'${KONFIG.wirLabel} macht es',K:'${KONFIG.kundeLabel} macht es',X:'wird gestrichen'},
-    auswahl:state.auswahl, kommentare:state.kommentare, positionen:positionen };
+    wertModi:{min:'Minimum',ml:'wahrscheinlicher Wert (Standard)',max:'Maximum',eigen:'eigener Wert (Feld e)'},
+    summen:{gewaehlt:Math.round(summeGewaehlt*10)/10, wahrscheinlich:summeWahrscheinlich, hinweis:'direkte PT ohne anteilige Projektleitung'},
+    auswahl:state.auswahl, werte:state.werte, kommentare:state.kommentare, positionen:positionen };
   var blob=new Blob([JSON.stringify(doc,null,2)],{type:'application/json'});
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -424,6 +500,8 @@ function importJson(file){
       if(!d||d.format!=='${KONFIG.speicherKey}-auswahl'){ alert('Keine g\u00fcltige Auswahl-Datei: Feld format=\u201e${KONFIG.speicherKey}-auswahl\u201c fehlt.'); return; }
       state.auswahl=(d.auswahl&&typeof d.auswahl==='object')?d.auswahl:{};
       state.kommentare=(d.kommentare&&typeof d.kommentare==='object')?d.kommentare:{};
+      state.werte=(d.werte&&typeof d.werte==='object')?d.werte:{};
+      paintWerte();
       boxes.forEach(function(b){ b.checked = state.auswahl[b.dataset.k]===b.value; });
       cmts.forEach(function(c){
         var v=state.kommentare[c.dataset.k]||'';
@@ -435,27 +513,108 @@ function importJson(file){
   r.readAsText(file);
 }
 
+// ── Excel-Export (.xlsx, ohne Bibliothek: ZIP ohne Kompression + SpreadsheetML) ──
+var CRC_T=(function(){var t=[],c;for(var i=0;i<256;i++){c=i;for(var k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[i]=c>>>0;}return t;})();
+function crc32(u){var c=0xFFFFFFFF;for(var i=0;i<u.length;i++)c=CRC_T[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipStore(files){
+  var enc=new TextEncoder(),parts=[],cd=[],off=0,d=new Date();
+  var tm=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF,dt=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  function u16(v){return [v&255,(v>>>8)&255];} function u32(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];}
+  files.forEach(function(f){
+    var name=enc.encode(f.name),data=enc.encode(f.data),crc=crc32(data);
+    var lh=new Uint8Array([].concat(u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(tm),u16(dt),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0)));
+    parts.push(lh,name,data);
+    cd.push(new Uint8Array([].concat(u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(tm),u16(dt),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off))),name);
+    off+=lh.length+name.length+data.length;
+  });
+  var cdLen=0; cd.forEach(function(x){cdLen+=x.length;});
+  var end=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cdLen),u32(off),u16(0)));
+  return new Blob(parts.concat(cd,[end]),{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function xe(v){return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function colL(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;}
+function sheetXml(rows,widths,opts){
+  opts=opts||{};
+  var x='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+  if(opts.freeze) x+='<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+  if(widths){ x+='<cols>'; widths.forEach(function(w,i){ x+='<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>'; }); x+='</cols>'; }
+  x+='<sheetData>';
+  rows.forEach(function(r,ri){
+    x+='<row r="'+(ri+1)+'">';
+    r.forEach(function(c,ci){
+      var ref=colL(ci)+(ri+1),st=(ri===0&&opts.headerBold)?' s="1"':'';
+      if(c===null||c===undefined||c==='') return;
+      if(typeof c==='number') x+='<c r="'+ref+'"'+st+'><v>'+c+'</v></c>';
+      else if(typeof c==='object'&&c.f) x+='<c r="'+ref+'" s="1"><f>'+xe(c.f)+'</f></c>';
+      else x+='<c r="'+ref+'" t="inlineStr"'+st+'><is><t xml:space="preserve">'+xe(c)+'</t></is></c>';
+    });
+    x+='</row>';
+  });
+  x+='</sheetData>';
+  if(opts.filter) x+='<autoFilter ref="'+opts.filter+'"/>';
+  return x+'</worksheet>';
+}
+function exportXlsx(){
+  var LEG={A:'${KONFIG.wirLabel} macht es',K:'${KONFIG.kundeLabel} macht es',X:'wird gestrichen'};
+  var MOD={min:'Minimum',ml:'wahrscheinlich',max:'Maximum',eigen:'eigener Wert'};
+  var head=['Nr','Gruppe','Block','Position','Min PT','Wahrscheinlich PT','Max PT','Modus','Gew\u00e4hlt PT','Zuordnung','Zuordnung (Text)','Kommentar'];
+  var rows=[head];
+  [].slice.call(document.querySelectorAll('.blk')).forEach(function(b){
+    [].slice.call(b.querySelectorAll('.p[data-k]')).forEach(function(p){
+      var k=p.dataset.k,t=tripOf(p),a=state.auswahl[k]||'';
+      rows.push([k,b.dataset.g,b.dataset.title,p.querySelector('.pn span').textContent.replace(k,'').trim(),t[0],t[1],t[2],MOD[modeOf(p)],effPt(p),a,a?LEG[a]:'offen',state.kommentare[k]||'']);
+    });
+  });
+  var last=rows.length,tr=last+1;
+  rows.push(['','','','Summe (direkte PT, ohne anteilige Projektleitung)',{f:'SUM(E2:E'+last+')'},{f:'SUM(F2:F'+last+')'},{f:'SUM(G2:G'+last+')'},'',{f:'SUM(I2:I'+last+')'},'','','']);
+  var d=new Date(),pad=function(x){return (x<10?'0':'')+x;};
+  var datum=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  var tot=0,totMl=0; pos.forEach(function(p){ tot+=effPt(p); totMl+=tripOf(p)[1]; });
+  var info=[['Feld','Wert'],['Dokument',document.title],['Exportiert am',pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())],
+    ['\u03a3 wahrscheinlich (direkt, ohne PL)',totMl],['\u03a3 gew\u00e4hlt (direkt, ohne PL)',Math.round(tot*10)/10],
+    ['Legende Zuordnung','A = '+LEG.A+' \u00b7 K = '+LEG.K+' \u00b7 X = '+LEG.X],
+    ['Legende Modus','Minimum / wahrscheinlich (Standard) / Maximum / eigener Wert \u2014 bestimmt die Spalte \u201eGew\u00e4hlt PT\u201c'],
+    ['Hinweis','Blatt \u201ePositionen\u201c ist filterbar; die Summenzeile rechnet per Formel und folgt Filtern nicht.']];
+  var files=[
+    {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+    {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+    {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Positionen" sheetId="1" r:id="rId1"/><sheet name="Info" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Positionen!$A$1:$L$'+last+'</definedName></definedNames></workbook>'},
+    {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {name:'xl/styles.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/></cellXfs></styleSheet>'},
+    {name:'xl/worksheets/sheet1.xml',data:sheetXml(rows,[6,30,34,52,8,14,8,14,11,10,16,50],{headerBold:true,freeze:true,filter:'A1:L'+last})},
+    {name:'xl/worksheets/sheet2.xml',data:sheetXml(info,[34,110],{headerBold:true})}
+  ];
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(zipStore(files));
+  a.download='${KONFIG.speicherKey}-'+datum+'.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+}
+
 // ── Werkzeugleiste ──
 var tools=document.createElement('div'); tools.id='tools';
 var b1=document.createElement('button'); b1.type='button'; b1.textContent='Als PDF exportieren';
-b1.title='\u00d6ffnet den Druckdialog \u2014 dort \u201eAls PDF speichern\u201c w\u00e4hlen. Auswahl und Kommentare werden mit ausgegeben.';
+b1.title='\u00d6ffnet den Druckdialog \u2014 dort \u201eAls PDF speichern\u201c w\u00e4hlen. Auswahl, gew\u00e4hlte PT-Werte und Kommentare werden mit ausgegeben.';
 b1.addEventListener('click',function(){window.print();});
 var b2=document.createElement('button'); b2.type='button'; b2.className='sec'; b2.textContent='JSON exportieren';
-b2.title='Speichert Auswahl und Kommentare als Datei \u2014 zum Weitergeben oder sp\u00e4teren Einspielen.';
+b2.title='Speichert Auswahl, gew\u00e4hlte PT-Werte und Kommentare als Datei \u2014 zum Weitergeben oder sp\u00e4teren Einspielen.';
 b2.addEventListener('click',exportJson);
 var fi=document.createElement('input'); fi.type='file'; fi.accept='.json,application/json'; fi.hidden=true;
 fi.addEventListener('change',function(){ if(fi.files[0]) importJson(fi.files[0]); fi.value=''; });
 var b3=document.createElement('button'); b3.type='button'; b3.className='sec'; b3.textContent='JSON importieren';
-b3.title='Spielt eine zuvor exportierte Auswahl-Datei ein \u2014 \u00fcberschreibt die aktuelle Auswahl und Kommentare.';
+b3.title='Spielt eine zuvor exportierte Auswahl-Datei ein \u2014 \u00fcberschreibt Auswahl, Werte und Kommentare.';
 b3.addEventListener('click',function(){fi.click();});
-tools.appendChild(b1); tools.appendChild(b2); tools.appendChild(b3); tools.appendChild(fi);
+var b4=document.createElement('button'); b4.type='button'; b4.className='sec'; b4.textContent='Excel exportieren';
+b4.title='Alle Positionen mit Dreipunktwerten, gew\u00e4hltem Wert, A/K/X-Zuordnung und Kommentaren als .xlsx \u2014 filterbar, mit Summenzeile.';
+b4.addEventListener('click',exportXlsx);
+tools.appendChild(b1); tools.appendChild(b2); tools.appendChild(b4); tools.appendChild(b3); tools.appendChild(fi);
 document.body.appendChild(tools);
 
 window.addEventListener('beforeprint',function(){
   var d=new Date();
   var p=function(x){return (x<10?'0':'')+x;};
   document.getElementById('export-stamp').textContent=
-    'Exportiert am '+p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear()+' um '+p(d.getHours())+':'+p(d.getMinutes())+' Uhr \u2014 die abgebildete A/K/X-Zuordnung und die Kommentare sind der Stand zu diesem Zeitpunkt.';
+    'Exportiert am '+p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear()+' um '+p(d.getHours())+':'+p(d.getMinutes())+' Uhr \u2014 die abgebildete A/K/X-Zuordnung, die gew\u00e4hlten PT-Werte (unterstrichen) und die Kommentare sind der Stand zu diesem Zeitpunkt.';
 });
 })();
 </scr`+`ipt></div></body></html>`;
