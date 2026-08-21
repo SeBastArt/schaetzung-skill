@@ -259,7 +259,7 @@ a{color:var(--accent)}
 .tag.hk{background:#e5efff;color:#1b4dc2}.tag.an{background:#e7f4ee;color:#0f7b52}.tag.ri{background:#fdecea;color:#b3261e}
 .condtab td{font-size:13px;padding:6px 10px;border-top:1px solid #eceff3;vertical-align:top}
 .condtab td:first-child{font-weight:700;white-space:nowrap;color:#1b4dc2}
-.dodbox{background:#eef2f6;border:1px solid #d8dfe8;border-radius:10px;padding:14px 18px;margin:14px 0;font-size:13.5px;line-height:1.55;color:#37414d;max-width:100ch}
+.dodbox{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:14px 18px;margin:14px 0;font-size:13.5px;line-height:1.55;color:#37414d}
 .sumband{display:flex;height:30px;border-radius:8px;overflow:hidden;margin:12px 0 10px;font-size:12px;color:#fff;font-weight:600}
 .sumband div{display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap}
 .sumlegend{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;color:#4d5867;margin-bottom:4px}
@@ -692,20 +692,20 @@ function sheetXml(rows,widths,opts){
 function exportXlsx(){
   var LEG={A:'${KONFIG.wirLabel} macht es',K:'${KONFIG.kundeLabel} macht es',X:'wird gestrichen'};
   var MOD={min:'Minimum',ml:'wahrscheinlich',max:'Maximum',eigen:'eigener Wert'};
-  var head=['Nr','Gruppe','Block','Position','Min PT','Wahrscheinlich PT','Max PT','Modus','Gew\u00e4hlt PT (Angebot)','Zuordnung','Zuordnung (Text)','Kommentar','PT bei K/X (nicht angeboten)'];
+  var head=['Nr','Gruppe','Block','Position','Min PT','Wahrscheinlich PT','Max PT','Modus','Gew\u00e4hlt PT (Angebot)','Zuordnung','PT bei K/X (nicht angeboten)','Kommentar'];
   var rows=[head];
   [].slice.call(document.querySelectorAll('.blk')).forEach(function(b){
     [].slice.call(b.querySelectorAll('.p[data-k]')).forEach(function(p){
       var k=p.dataset.k,t=tripOf(p),a=state.auswahl[k]||'';
-      rows.push([k,b.dataset.g,b.dataset.title,p.querySelector('.pn span').textContent.replace(k,'').trim(),t[0],t[1],t[2],MOD[modeOf(p)],(a==='K'||a==='X')?'':effPt(p),a,a?LEG[a]:'offen',state.kommentare[k]||'',(a==='K'||a==='X')?effPt(p):'']);
+      rows.push([k,b.dataset.g,b.dataset.title,p.querySelector('.pn span').textContent.replace(k,'').trim(),t[0],t[1],t[2],MOD[modeOf(p)],(a==='K'||a==='X')?'':effPt(p),a,(a==='K'||a==='X')?effPt(p):'',state.kommentare[k]||'']);
     });
   });
   var last=rows.length,tr=last+1;
   var sumRow=last+1,R=plRate().toFixed(4),pct=(plRate()*100).toFixed(1).replace('.',',');
-  rows.push(['','','','Summe Positionen (E\u2013G: alle; I: nur A + offen)',{f:'SUM(E2:E'+last+')'},{f:'SUM(F2:F'+last+')'},{f:'SUM(G2:G'+last+')'},'',{f:'SUM(I2:I'+last+')'},'','','',{f:'SUM(M2:M'+last+')'}]);
-  if(plRate()) rows.push(['','','',KP.dataset.plName+' (anteilig '+pct+' %)',{f:'ROUND(E'+sumRow+'*'+R+',0)'},{f:'ROUND(F'+sumRow+'*'+R+',0)'},{f:'ROUND(G'+sumRow+'*'+R+',0)'},'',{f:'ROUND(I'+sumRow+'*'+R+',0)'},'','','','']);
+  rows.push(['','','','Summe Positionen (E\u2013G: alle; I: nur A + offen)',{f:'SUM(E2:E'+last+')'},{f:'SUM(F2:F'+last+')'},{f:'SUM(G2:G'+last+')'},'',{f:'SUM(I2:I'+last+')'},'',{f:'SUM(K2:K'+last+')'},'']);
+  if(plRate()) rows.push(['','','',KP.dataset.plName+' (anteilig '+pct+' %)',{f:'ROUND(E'+sumRow+'*'+R+',0)'},{f:'ROUND(F'+sumRow+'*'+R+',0)'},{f:'ROUND(G'+sumRow+'*'+R+',0)'},'',{f:'ROUND(I'+sumRow+'*'+R+',0)'},'','','']);
   var endRow=sumRow+(plRate()?1:0);
-  rows.push(['','','','Gesamt (Spalte I = Angebotssumme: A + offen, ohne K/X)',{f:'SUM(E'+sumRow+':E'+endRow+')'},{f:'SUM(F'+sumRow+':F'+endRow+')'},{f:'SUM(G'+sumRow+':G'+endRow+')'},'',{f:'SUM(I'+sumRow+':I'+endRow+')'},'','','','']);
+  rows.push(['','','','Gesamt (Spalte I = Angebotssumme: A + offen, ohne K/X)',{f:'SUM(E'+sumRow+':E'+endRow+')'},{f:'SUM(F'+sumRow+':F'+endRow+')'},{f:'SUM(G'+sumRow+':G'+endRow+')'},'',{f:'SUM(I'+sumRow+':I'+endRow+')'},'','','']);
   var d=new Date(),pad=function(x){return (x<10?'0':'')+x;};
   var datum=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   var tot=0,totMl=0; pos.forEach(function(p){ tot+=effPt(p); totMl+=tripOf(p)[1]; });
@@ -720,10 +720,10 @@ function exportXlsx(){
   var files=[
     {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
     {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
-    {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Positionen" sheetId="1" r:id="rId1"/><sheet name="Info" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Positionen!$A$1:$M$'+last+'</definedName></definedNames></workbook>'},
+    {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Positionen" sheetId="1" r:id="rId1"/><sheet name="Info" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Positionen!$A$1:$L$'+last+'</definedName></definedNames></workbook>'},
     {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
     {name:'xl/styles.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/></cellXfs></styleSheet>'},
-    {name:'xl/worksheets/sheet1.xml',data:sheetXml(rows,[6,30,34,52,8,14,8,14,18,10,16,50,24],{headerBold:true,freeze:true,filter:'A1:M'+last})},
+    {name:'xl/worksheets/sheet1.xml',data:sheetXml(rows,[6,30,34,52,8,14,8,14,18,10,24,50],{headerBold:true,freeze:true,filter:'A1:L'+last})},
     {name:'xl/worksheets/sheet2.xml',data:sheetXml(info,[34,110],{headerBold:true})}
   ];
   var a=document.createElement('a');
