@@ -209,6 +209,14 @@ a{color:var(--accent)}
 #tools button:hover{background:#2563eb}
 #tools button.sec{background:#fff;color:#1b4dc2;border:1px solid #c9d7f2}
 #tools button.sec:hover{background:#f3f7ff}
+#tools .dd{position:relative}
+#tools .dd-btn::after{content:'';display:inline-block;margin-left:8px;border:4px solid transparent;border-bottom-color:currentColor;vertical-align:2px}
+#tools .dd.open .dd-btn::after{border-bottom-color:transparent;border-top-color:currentColor;vertical-align:-3px}
+#tools .dd-menu{display:none;position:absolute;right:0;bottom:calc(100% + 8px);min-width:230px;background:#fff;border:1px solid #d8dfe8;border-radius:12px;box-shadow:0 8px 28px rgba(20,26,34,.22);padding:6px;flex-direction:column}
+#tools .dd.open .dd-menu{display:flex}
+#tools .dd-menu button{background:none;color:#1a1a1a;border:0;border-radius:8px;box-shadow:none;padding:9px 12px;text-align:left;font-weight:500;white-space:nowrap}
+#tools .dd-menu button:hover{background:#eef3fc;color:#1b4dc2}
+#tools .dd-menu button small{display:block;font-size:11px;font-weight:400;color:#6b7685;margin-top:2px}
 .cmt-btn{background:none;border:0;cursor:pointer;font-size:13px;color:#8b95a3;padding:0 2px;line-height:1}
 .cmt-btn:hover{color:#1b4dc2}
 .cmt-btn.hat{color:#8a6300}
@@ -591,23 +599,37 @@ function exportXlsx(){
   setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
 }
 
-// ── Werkzeugleiste ──
+// ── Werkzeugleiste: zwei Dropdowns ──
 var tools=document.createElement('div'); tools.id='tools';
-var b1=document.createElement('button'); b1.type='button'; b1.textContent='Als PDF exportieren';
-b1.title='\u00d6ffnet den Druckdialog \u2014 dort \u201eAls PDF speichern\u201c w\u00e4hlen. Auswahl, gew\u00e4hlte PT-Werte und Kommentare werden mit ausgegeben.';
-b1.addEventListener('click',function(){window.print();});
-var b2=document.createElement('button'); b2.type='button'; b2.className='sec'; b2.textContent='JSON exportieren';
-b2.title='Speichert Auswahl, gew\u00e4hlte PT-Werte und Kommentare als Datei \u2014 zum Weitergeben oder sp\u00e4teren Einspielen.';
-b2.addEventListener('click',exportJson);
 var fi=document.createElement('input'); fi.type='file'; fi.accept='.json,application/json'; fi.hidden=true;
 fi.addEventListener('change',function(){ if(fi.files[0]) importJson(fi.files[0]); fi.value=''; });
-var b3=document.createElement('button'); b3.type='button'; b3.className='sec'; b3.textContent='JSON importieren';
-b3.title='Spielt eine zuvor exportierte Auswahl-Datei ein \u2014 \u00fcberschreibt Auswahl, Werte und Kommentare.';
-b3.addEventListener('click',function(){fi.click();});
-var b4=document.createElement('button'); b4.type='button'; b4.className='sec'; b4.textContent='Excel exportieren';
-b4.title='Alle Positionen mit Dreipunktwerten, gew\u00e4hltem Wert, A/K/X-Zuordnung und Kommentaren als .xlsx \u2014 filterbar, mit Summenzeile.';
-b4.addEventListener('click',exportXlsx);
-tools.appendChild(b1); tools.appendChild(b2); tools.appendChild(b4); tools.appendChild(b3); tools.appendChild(fi);
+function dropdown(label,cls,items){
+  var dd=document.createElement('div'); dd.className='dd';
+  var btn=document.createElement('button'); btn.type='button'; btn.className='dd-btn'+(cls?' '+cls:''); btn.textContent=label;
+  btn.setAttribute('aria-haspopup','menu'); btn.setAttribute('aria-expanded','false');
+  var menu=document.createElement('div'); menu.className='dd-menu'; menu.setAttribute('role','menu');
+  items.forEach(function(it){
+    var b=document.createElement('button'); b.type='button'; b.setAttribute('role','menuitem');
+    b.innerHTML=it.label+(it.hint?'<small>'+it.hint+'</small>':''); b.title=it.title||'';
+    b.addEventListener('click',function(){ closeAll(); it.run(); });
+    menu.appendChild(b);
+  });
+  btn.addEventListener('click',function(ev){ ev.stopPropagation(); var open=dd.classList.contains('open'); closeAll(); if(!open){ dd.classList.add('open'); btn.setAttribute('aria-expanded','true'); } });
+  dd.appendChild(menu); dd.appendChild(btn);
+  return dd;
+}
+function closeAll(){ [].slice.call(tools.querySelectorAll('.dd.open')).forEach(function(d){ d.classList.remove('open'); d.querySelector('.dd-btn').setAttribute('aria-expanded','false'); }); }
+document.addEventListener('click',closeAll);
+document.addEventListener('keydown',function(ev){ if(ev.key==='Escape') closeAll(); });
+tools.appendChild(dropdown('Exportieren','',[
+  { label:'Als PDF', hint:'Druckdialog \u2014 dort \u201eAls PDF speichern\u201c', title:'Auswahl, gew\u00e4hlte PT-Werte und Kommentare werden mit ausgegeben.', run:function(){ window.print(); } },
+  { label:'Als Excel (.xlsx)', hint:'Positionen filterbar, mit Summenzeile', title:'Alle Positionen mit Dreipunktwerten, gew\u00e4hltem Wert, A/K/X-Zuordnung und Kommentaren.', run:exportXlsx }
+]));
+tools.appendChild(dropdown('JSON','sec',[
+  { label:'Exportieren', hint:'Stand als Datei weitergeben oder archivieren', title:'Speichert Auswahl, gew\u00e4hlte PT-Werte und Kommentare als Datei.', run:exportJson },
+  { label:'Importieren', hint:'\u00dcberschreibt Auswahl, Werte und Kommentare', title:'Spielt eine zuvor exportierte Auswahl-Datei ein.', run:function(){ fi.click(); } }
+]));
+tools.appendChild(fi);
 document.body.appendChild(tools);
 
 window.addEventListener('beforeprint',function(){

@@ -19,6 +19,7 @@ customer**, not just read. One generator script, one data structure, zero depend
     block, group and total sums follow live ("Σ 41 → 49 PT")
   - **Comment fields** per position (✎), auto-saved
   - **JSON export/import** — hand the negotiation state around or archive it
+  - **Toolbar with two dropdowns**: "Exportieren" (PDF · Excel) and "JSON" (export · import)
   - **Excel export** (.xlsx, no library): filterable position table with three-point values,
     chosen value, A/K/X and comments, plus a live SUM row and an info sheet
   - **PDF export** via print dialog with a timestamp stamp ("state as of …")

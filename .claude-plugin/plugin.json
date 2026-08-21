@@ -1,7 +1,7 @@
 {
   "name": "schaetzung",
   "description": "Interactive effort-estimation pages for customer scope discussions — three-point estimates with per-item derivation (origin, assumptions, risks), A/K/X scope assignment, min/likely/max/custom value selection, comments, JSON import/export, Excel export and PDF print. German-language output.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": {
     "name": "SeBastArt"
   },

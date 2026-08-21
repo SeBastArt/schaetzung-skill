@@ -76,7 +76,7 @@ das eingebettete Script parst (`new Function(scriptText)`).
 **Interaktiv (wenn ein Browser verfügbar ist, sonst überspringen):** A/K/X exklusiv klickbar,
 Summenleiste rechnet mit · min/max anklicken ändert Block-/Gruppen-/Gesamtsumme („41 → 49 PT"),
 eigener Wert überschreibt, Feld leeren setzt zurück · ✎ öffnet Kommentar · JSON-Export/-Import-
-Roundtrip (inkl. `werte`) · Excel-Export öffnet ohne Reparaturdialog, SUM-Zeile rechnet ·
+Roundtrip (inkl. `werte`) · Werkzeugleiste: „Exportieren ▾" (PDF · Excel) und „JSON ▾" (Exportieren · Importieren) öffnen nach oben, schließen bei Klick außerhalb/Escape · Excel-Export öffnet ohne Reparaturdialog, SUM-Zeile rechnet ·
 „Als PDF exportieren" zeigt Zeitstempel, Auswahl und gewählte Werte (unterstrichen) im Druckbild.
 
 ## Common Mistakes
